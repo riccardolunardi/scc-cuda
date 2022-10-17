@@ -3,8 +3,21 @@
 #include <string>
 #include <iostream>
 
-#define debug 0
+#define debug 1
 using namespace std;
+
+#ifdef debug
+#define DEBUG_MSG(str)                 \
+	do                                 \
+	{                                  \
+		std::cout << str << std::endl; \
+	} while (false)
+#else
+#define DEBUG_MSG(str) \
+	do                 \
+	{                  \
+	} while (false)
+#endif
 
 /*
 Informazioni base da ricordare:
@@ -30,8 +43,8 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	iss >> c;
 
 	// Inizializzazione di tutte le variabili intere: archi, nodi, variabile di debuff, u e v
-	//  u rappresenterà il numero del vertice da cui parte l'arco che si sta elaborando
-	//  v rapprenseterà il numbero del vertice a cui l'arco che si sta elaborando punta
+	// - u rappresenterà il numero del vertice da cui parte l'arco che si sta elaborando
+	// - v rapprenseterà il numbero del vertice a cui l'arco che si sta elaborando punta
 	int m, n, x, u, v;
 	int i;
 
@@ -39,15 +52,13 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	iss >> n;
 	iss >> x;
 
-	if (debug)
-	{
-		std::cout << "Number of edges: " << m << '\n';
-		std::cout << "Number of vertices: " << n << '\n';
-	}
+	DEBUG_MSG("Obtaining the adjacency list...");
+	DEBUG_MSG("Number of edges: " << m);
+	DEBUG_MSG("Number of vertices: " << n);
 
 	// uedges è il numero di arco che si sta elaborando nel ciclo corrente
-	int uedges = -1;
-	int oldu = -1;
+	int uedges = 0;
+	int oldu = 0;
 
 	//-------------------------------------------------------------------------
 	//-------------------------Filling O(V) list-------------------------------
@@ -64,7 +75,7 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 		// Lettura della riga
 		std::istringstream iss(line);
 		iss >> u;
-		// cout<< "oldu : "<< oldu<<", u-1 : "<<u-1<<"\n";
+		DEBUG_MSG("oldu : " << oldu << ", u-1 : " << u-1);
 
 		// Se il nodo "u" che si sta leggendo è lo stesso della riga prima...
 		if (oldu == (u - 1))
@@ -79,7 +90,7 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 			{
 				// Associa al nodo il numero di archi
 				Vertices[oldu] = uedges;
-				// cout<<" Vertices["<<oldu<<"] : " << Vertices[oldu]<<"\n";
+				DEBUG_MSG("Vertices["<<oldu<<"] : " << Vertices[oldu]);
 			}
 
 			// Reinizializza le variabili, ovvero assegnando il numero di archi base (1) e
@@ -96,7 +107,7 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 
 	// Ultimo assegnamento
 	Vertices[oldu] = uedges;
-	// cout<<" Vertices["<<oldu<<"] : " << Vertices[oldu]<< "\n";
+	DEBUG_MSG("Vertices["<<oldu<<"] : " << Vertices[oldu]);
 
 	/*
 	In questa sezione, quello che prima era l'out degree di un singolo nodo, ora diventa l'out degree
@@ -104,13 +115,16 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	in modo tale da permettere alla struttura dati di poter accedere (tramite questo valore appena calcolato)
 	al giusto indice della seconda lista.
 	*/
-	int temp1, temp2 = 0;
+	int temp1 = 0;
+	int temp2 = 0;
 	for (i = 1; i < n; i++)
 	{
 		temp1 = Vertices[i];
 		Vertices[i] = Vertices[i - 1] + temp2;
+		cout << temp1 << endl;
+		cout << temp2 << endl;
 		temp2 = temp1;
-		// cout<<i<<" : "<<Vertices[i]<<"\n";
+		DEBUG_MSG(i << " : " << Vertices[i]);
 	}
 
 	// TODO: Check the next section of code can be replaced with this:
@@ -119,14 +133,13 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	if (debug){
 		cout << "----O(V) list----\n";
 		for (i = 0; i < n; i++){
-			cout << "Vertices[" << i << "] : " << Vertices[i] << "\n";
+			cout << "Vertices[" << i << "] : " << Vertices[i];
 		}
 		cout << "----O(V) list----\n";
 	}
 	*/
 
-	if (debug)
-		cout << "----O(V) list----\n";
+	DEBUG_MSG("----O(V) list----\n");
 
 	for (i = 0; i < n; i++)
 	{
@@ -135,12 +148,10 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 		// else if(Vertices[i] == Vertices[i-1])
 		//	Vertices[i-1] = -1;
 
-		if (debug)
-			cout << "Vertices[" << i << "] : " << Vertices[i] << "\n";
+		DEBUG_MSG("Vertices[" << i << "] : " << Vertices[i]);
 	}
 
-	if (debug)
-		cout << "----O(V) list----\n";
+	DEBUG_MSG("----O(V) list----\n");
 
 	infile.close();
 
@@ -171,7 +182,7 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 			// di aggiungono in successione i nodi puntati da "u"
 			AdjacencyList[idx++] = v;
 
-			// std::cout << "Entering "<< u <<" to "<< v << " at "<< idx-1 << '\n';
+			// std::cout << "Entering "<< u <<" to "<< v << " at "<< idx-1;
 		}
 		else
 		{
@@ -179,7 +190,7 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 			idx = Vertices[u - 1];
 			AdjacencyList[idx++] = v;
 			oldu = u - 1;
-			// std::cout << "Entering " << u <<" to "<< v << " at "<< idx-1 << '\n';
+			// std::cout << "Entering " << u <<" to "<< v << " at "<< idx-1;
 		}
 
 		// Debuffing come prima

@@ -40,8 +40,9 @@ void reverse_adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	iss >> n;
 	iss >> x;
 
-	DEBUG_MSG("Number of edges: " << m << '\n');
-	DEBUG_MSG("Number of vertices: " << n << '\n');
+	DEBUG_MSG("Obtaining the reversed adjacency list...");
+	DEBUG_MSG("Number of edges: " << m);
+	DEBUG_MSG("Number of vertices: " << n);
 
 	edges_count_per_vertex = new int[n];
 
@@ -70,7 +71,7 @@ void reverse_adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 		temp1 = Vertices[i];
 		Vertices[i] = Vertices[i - 1] + temp2;
 		temp2 = temp1;
-		DEBUG_MSG(i << " : " << Vertices[i] << "\n");
+		DEBUG_MSG(i << " : " << Vertices[i]);
 	}
 
 	DEBUG_MSG("----O(V) list----\n");
@@ -80,7 +81,7 @@ void reverse_adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 		if (i == 0)
 			Vertices[i] = 0;
 
-		DEBUG_MSG("Vertices[" << i << "] : " << Vertices[i] << "\n");
+		DEBUG_MSG("Vertices[" << i << "] : " << Vertices[i]);
 		edges_count_per_vertex[i] = Vertices[i];
 	}
 
@@ -108,10 +109,10 @@ void reverse_adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 		oldu = u - 1;
 		idx = edges_count_per_vertex[oldu];
 
-		DEBUG_MSG(" count[" << oldu << "] : " << edges_count_per_vertex[oldu] << "idx : " << idx << endl);
+		DEBUG_MSG("count[" << oldu << "] : " << edges_count_per_vertex[oldu] << "idx : " << idx);
 		AdjacencyList[idx] = v;
 		edges_count_per_vertex[oldu] += 1;
-		DEBUG_MSG("else AdjacencyList[" << idx << "] : " << v << '\n');
+		DEBUG_MSG("else AdjacencyList[" << idx << "] : " << v);
 
 		while (iss >> x)
 		{
@@ -123,7 +124,7 @@ void reverse_adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 		cout << "----O(E) list----\n";
 		for (i = 0; i < m; i++)
 		{
-			cout << "AdjacencyList[" << i << "] : " << AdjacencyList[i] << endl;
+			cout << "AdjacencyList[" << i << "] : " << AdjacencyList[i];
 		}
 		cout << "----O(E) list----\n";
 	}
