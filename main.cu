@@ -12,55 +12,53 @@
 #define debug 1
 using namespace std;
 
-// cioè almeno sembra, ma se divide in 4 sta facendo OBF? //cristo sandro
-
-__global__ void trimming(int * Vertices, int * VerticesT, int * AdjListT, int n, int m, bool * VisitedF, bool * VisitedB, int * subgraph, bool * terminateF) {
-	int i, ListPointer1, ListPointer2;
+__global__ void trimming(int * nodes, int * nodes_transpose, int * adjacency_list_transpose, int num_nodes, int num_edges, bool * forward_visited, bool * backward_visited, int * subgraph, bool * forward_terminate) {
+	int i, list_pointer_1, list_pointer_2;
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	bool elim = true;
 
-	if (id < n) {
-		printf("FW :: v[%d]=%d : v[%d]=%d \n", id, Vertices[id], id + 1, Vertices[id + 1]);
-		//printf("BW :: v[%d]=%d : v[%d]=%d \n", id, VerticesT[id], id+1, VerticesT[id+1]);
+	if (id < num_nodes) {
+		printf("FW :: v[%d]=%d : v[%d]=%d \n", id, nodes[id], id + 1, nodes[id + 1]);
+		//printf("BW :: v[%d]=%d : v[%d]=%d \n", id, nodes_transpose[id], id+1, nodes_transpose[id+1]);
 
-		if (VisitedF[id] == false) {
+		if (forward_visited[id] == false) {
 
-			if (id == n - 1) {
+			if (id == num_nodes - 1) {
 				elim = true;
-				if (Vertices[id] == m || VerticesT[id] == m) {
-					VisitedF[id] = true;
-					VisitedB[id] = true;
+				if (nodes[id] == num_edges || nodes_transpose[id] == num_edges) {
+					forward_visited[id] = true;
+					backward_visited[id] = true;
 					subgraph[id] = 4 * id + 1;
-					* terminateF = false;
-					printf("Trim e : v[%d] : %d, setting terminateF to %d \n", id, subgraph[id], * terminateF);
+					* forward_terminate = false;
+					printf("Trim e : v[%d] : %d, setting forward_terminate to %d \n", id, subgraph[id], * forward_terminate);
 				}
-			} else if ((Vertices[id] == Vertices[id + 1]) || (VerticesT[id] == VerticesT[id + 1])) {
-				VisitedF[id] = true;
-				VisitedB[id] = true;
+			} else if ((nodes[id] == nodes[id + 1]) || (nodes_transpose[id] == nodes_transpose[id + 1])) {
+				forward_visited[id] = true;
+				backward_visited[id] = true;
 				subgraph[id] = 4 * id + 1;
-				* terminateF = false;
-				printf("Trim e : v[%d] : %d, setting terminateF to %d \n", id, subgraph[id], * terminateF);
+				* forward_terminate = false;
+				printf("Trim e : v[%d] : %d, setting forward_terminate to %d \n", id, subgraph[id], * forward_terminate);
 			} else {
-				ListPointer1 = VerticesT[id];
+				list_pointer_1 = nodes_transpose[id];
 
-				if (id == n - 1)
-					ListPointer2 = m;
+				if (id == num_nodes - 1)
+					list_pointer_2 = num_edges;
 				else
-					ListPointer2 = VerticesT[id + 1];
+					list_pointer_2 = nodes_transpose[id + 1];
 
-				for (i = ListPointer1; i < ListPointer2; i++) {
-					printf("iteration %d subgraph[%d]=%d, subgraph[%d]=%d\n", i, AdjListT[i] - 1, subgraph[AdjListT[i] - 1], id, subgraph[id]);
-					if (subgraph[AdjListT[i] - 1] == subgraph[id]) {
+				for (i = list_pointer_1; i < list_pointer_2; i++) {
+					printf("iteration %d subgraph[%d]=%d, subgraph[%d]=%d\n", i, adjacency_list_transpose[i] - 1, subgraph[adjacency_list_transpose[i] - 1], id, subgraph[id]);
+					if (subgraph[adjacency_list_transpose[i] - 1] == subgraph[id]) {
 						elim = false;
 						break;
 					}
 				}
 				if (elim == true) {
-					VisitedF[id] = true;
-					VisitedB[id] = true;
+					forward_visited[id] = true;
+					backward_visited[id] = true;
 					subgraph[id] = 4 * id + 1;
-					* terminateF = false;
-					printf("Trim e : v[%d] : %d, setting terminateF to %d,subgraph to %d \n", id, subgraph[id], * terminateF, subgraph[id]);
+					* forward_terminate = false;
+					printf("Trim e : v[%d] : %d, setting forward_terminate to %d,subgraph to %d \n", id, subgraph[id], * forward_terminate, subgraph[id]);
 				}
 
 			}
@@ -68,151 +66,149 @@ __global__ void trimming(int * Vertices, int * VerticesT, int * AdjListT, int n,
 	}
 }
 
-__global__ void forward_closure(int * dVertices, int * dAdjList, int * subgraph, bool * visitedF, bool * terminateF, int numVertices, int numEdges) {
+__global__ void forward_closure(int * device_nodes, int * device_adjacency_list, int * subgraph, bool * forward_visited, bool * forward_terminate, int num_nodes, int num_edges) {
 	//	printf("in fw\n");
-	int i, ListPointer1, ListPointer2;
+	int i, list_pointer_1, list_pointer_2;
 
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	int pivot = id + 1;
-	if (id < numVertices) {
-		//		printf("TID = %d v : %d sg %d\n",pivot, visitedF[id], subgraph[id]);
+	if (id < num_nodes) {
+		//		printf("TID = %d v : %d sg %d\n",pivot, forward_visited[id], subgraph[id]);
 
-		if (visitedF[id]) {
-			ListPointer1 = dVertices[pivot - 1];
+		if (forward_visited[id]) {
+			list_pointer_1 = device_nodes[pivot - 1];
 
-			if (pivot == numVertices)
-				ListPointer2 = numEdges;
+			if (pivot == num_nodes)
+				list_pointer_2 = num_edges;
 			else
-				ListPointer2 = dVertices[pivot];
+				list_pointer_2 = device_nodes[pivot];
 
-			//			printf("id = %d :: %d %d \n", id, ListPointer1, ListPointer2);	
-			for (i = ListPointer1; i < ListPointer2; i++) {
-				//				printf("v[%d] : %d sp=%d s=%d \n", dAdjList[i], visitedF[dAdjList[i]-1],subgraph[pivot-1],subgraph[dAdjList[i]-1]);	
-				if (visitedF[dAdjList[i] - 1] == false && subgraph[pivot - 1] == subgraph[dAdjList[i] - 1]) {
-					//					printf("src -> dest : %d -> %d\n",pivot, dAdjList[i]);
-					visitedF[dAdjList[i] - 1] = true;
-					* terminateF = false;
+			//			printf("id = %d :: %d %d \n", id, list_pointer_1, list_pointer_2);	
+			for (i = list_pointer_1; i < list_pointer_2; i++) {
+				//				printf("v[%d] : %d sp=%d s=%d \n", device_adjacency_list[i], forward_visited[device_adjacency_list[i]-1],subgraph[pivot-1],subgraph[device_adjacency_list[i]-1]);	
+				if (forward_visited[device_adjacency_list[i] - 1] == false && subgraph[pivot - 1] == subgraph[device_adjacency_list[i] - 1]) {
+					//					printf("src -> dest : %d -> %d\n",pivot, device_adjacency_list[i]);
+					forward_visited[device_adjacency_list[i] - 1] = true;
+					* forward_terminate = false;
 				}
 			}
 		}
 	}
 }
 
-__global__ void generate_subgraph(int pivot, bool * visitedF, bool * visitedB, int * subgraph, int numVertices) {
+__global__ void generate_subgraph(int pivot, bool * forward_visited, bool * backward_visited, int * subgraph, int num_nodes) {
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
-	if (id < numVertices) {
+	if (id < num_nodes) {
 		// Il nodo è stato visitato sia dalla backward che dalla forward
 		// Il nodo fa parte di una SCC
-		if (visitedF[id] == visitedB[id] && visitedF[id] == true) {
+		if (forward_visited[id] == backward_visited[id] && forward_visited[id] == true) {
 			subgraph[id] = 4 * pivot;
 		}
 
 		// Il nodo "id" è stato visitato dalla forward, ma non dalla backward
 		// Si deve calcolare FB(F\B)
-		if (visitedF[id] != visitedB[id] && visitedF[id] == true) {
+		if (forward_visited[id] != backward_visited[id] && forward_visited[id] == true) {
 			subgraph[id] = 4 * pivot + 1;
-			visitedF[id] = visitedB[id] = false;
+			forward_visited[id] = backward_visited[id] = false;
 		}
 
 		// Il nodo "id" è stato visitato dalla backward, ma non dalla forward
 		// Si deve calcolare FB(B\F)
-		if (visitedF[id] != visitedB[id] && visitedB[id] == true) {
+		if (forward_visited[id] != backward_visited[id] && backward_visited[id] == true) {
 			subgraph[id] = 4 * pivot + 2;
-			visitedF[id] = visitedB[id] = false;
+			forward_visited[id] = backward_visited[id] = false;
 		}
 
 		// Il nodo non è stato visitato da nessuno
 		// Si deve calcolare FB( V \ (B U F))
-		if (visitedF[id] == visitedB[id] && visitedB[id] == false) {
+		if (forward_visited[id] == backward_visited[id] && backward_visited[id] == false) {
 			subgraph[id] = 4 * pivot + 3;
-			visitedF[id] = visitedB[id] = false;
+			forward_visited[id] = backward_visited[id] = false;
 		}
 	}
 }
 
-void fw_bw(int n, int m, int * Vertices, int * AdjacencyList, int * Vertices_Transpose, int * AdjacencyList_Transpose) {
-	int * dVertices, * dAdjList, * dVerticesT, * dAdjListT;
+void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
+	int * device_nodes, * device_adjacency_list, * device_nodes_transpose, * device_adjacency_list_transpose;
 	int * subgraph;
-	bool * visitedF, * visitedB;
-	bool * terminateF, * terminateB, * dterminateF, * dterminateB;
+	bool * forward_visited, * backward_visited;
+	bool * forward_terminate, * backward_terminate, * device_forward_terminate, * device_backward_terminate;
 	int i = 0;
 
-	cudaMalloc((void ** ) & dVertices, n * (sizeof(int)));
-	cudaMalloc((void ** ) & dAdjList, m * (sizeof(int)));
-	cudaMalloc((void ** ) & dVerticesT, n * (sizeof(int)));
-	cudaMalloc((void ** ) & dAdjListT, m * (sizeof(int)));
-	cudaMalloc((void ** ) & subgraph, n * (sizeof(int)));
-	cudaMalloc((void ** ) & visitedF, n * (sizeof(bool)));
-	cudaMalloc((void ** ) & visitedB, n * (sizeof(bool)));
+	cudaMalloc((void ** ) & device_nodes, num_nodes * (sizeof(int)));
+	cudaMalloc((void ** ) & device_adjacency_list, num_edges * (sizeof(int)));
+	cudaMalloc((void ** ) & device_nodes_transpose, num_nodes * (sizeof(int)));
+	cudaMalloc((void ** ) & device_adjacency_list_transpose, num_edges * (sizeof(int)));
+	cudaMalloc((void ** ) & subgraph, num_nodes * (sizeof(int)));
+	cudaMalloc((void ** ) & forward_visited, num_nodes * (sizeof(bool)));
+	cudaMalloc((void ** ) & backward_visited, num_nodes * (sizeof(bool)));
 
-	cudaHostAlloc((void ** ) & terminateF, 1 * sizeof(bool), cudaHostAllocMapped);
-	cudaHostAlloc((void ** ) & terminateB, 1 * sizeof(bool), cudaHostAllocMapped);
+	cudaHostAlloc((void ** ) & forward_terminate, 1 * sizeof(bool), cudaHostAllocMapped);
+	cudaHostAlloc((void ** ) & backward_terminate, 1 * sizeof(bool), cudaHostAllocMapped);
 
-	cudaMemset(subgraph, 0, n * sizeof(int));
-	cudaMemset(visitedF, false, n);
-	cudaMemset(visitedB, false, n);
+	cudaMemset(subgraph, 0, num_nodes * sizeof(int));
+	cudaMemset(forward_visited, false, num_nodes);
+	cudaMemset(backward_visited, false, num_nodes);
 
-	cudaHostGetDevicePointer( & dterminateF, terminateF, 0);
-	cudaHostGetDevicePointer( & dterminateB, terminateB, 0);
+	cudaHostGetDevicePointer( & device_forward_terminate, forward_terminate, 0);
+	cudaHostGetDevicePointer( & device_backward_terminate, backward_terminate, 0);
 
-	cudaMemcpy(dVertices, Vertices, sizeof(int) * n, cudaMemcpyHostToDevice);
-	cudaMemcpy(dAdjList, AdjacencyList, sizeof(int) * m, cudaMemcpyHostToDevice);
-	cudaMemcpy(dVerticesT, Vertices_Transpose, sizeof(int) * n, cudaMemcpyHostToDevice);
-	cudaMemcpy(dAdjListT, AdjacencyList_Transpose, sizeof(int) * m, cudaMemcpyHostToDevice);
+	cudaMemcpy(device_nodes, nodes, sizeof(int) * num_nodes, cudaMemcpyHostToDevice);
+	cudaMemcpy(device_adjacency_list, adjacency_list, sizeof(int) * num_edges, cudaMemcpyHostToDevice);
+	cudaMemcpy(device_nodes_transpose, nodes_transpose, sizeof(int) * num_nodes, cudaMemcpyHostToDevice);
+	cudaMemcpy(device_adjacency_list_transpose, adjacency_list_transpose, sizeof(int) * num_edges, cudaMemcpyHostToDevice);
 
-	int numBlocks, numThreadsPerBlock, pivot;
-	numThreadsPerBlock = 256;
-	numBlocks = n / numThreadsPerBlock + (n % numThreadsPerBlock == 0 ? 0 : 1);
+	int num_blocks, num_threads_per_block, pivot;
+	num_threads_per_block = 256;
+	num_blocks = num_nodes / num_threads_per_block + (num_nodes % num_threads_per_block == 0 ? 0 : 1);
 
 	if (debug)
-		cout << "N° blocks: " << numBlocks << " ,n° threads: " << numThreadsPerBlock << endl;
+		cout << "N° blocks: " << num_blocks << " ,n° threads: " << num_threads_per_block << endl;
 
 	// Complete Trimming
-	FWD reach c'è (anche bwd), trimming c'è pivot non ho visto come sia
-	// Quindi prima di tutto chiama trimming, yess
-	while ( /**terminateF == false ||*/ i < 5) {
-		* terminateF = true;
-		trimming << < numBlocks, numThreadsPerBlock >>> (dVertices, dVerticesT, dAdjListT, n, m, visitedF, visitedB, subgraph, dterminateF);
+	// while (*forward_terminate == false || i < 5) {                  // Il *forward_terminate == false era commentato, ho commentato tutta la riga invece
+    // DOMANDA: perchè fa 'trimming 5 volte?'
+	while (i < 5) {
+		* forward_terminate = true;
+		trimming << < num_blocks, num_threads_per_block >>> (device_nodes, device_nodes_transpose, device_adjacency_list_transpose, num_nodes, num_edges, forward_visited, backward_visited, subgraph, device_forward_terminate);
 		cudaThreadSynchronize();
-		printf("terminate : %d \n", * terminateF);
+		printf("terminate : %d \n", * forward_terminate);
 		i++;
 	}
 
-	* terminateF = false;
-	pivot = 0; //bella
-	cudaMemset( & visitedF[pivot], true, 1);
-	cudaMemset( & visitedB[pivot], true, 1);
+	* forward_terminate = false;
+	pivot = 0;
+	cudaMemset( & forward_visited[pivot], true, 1);
+	cudaMemset( & backward_visited[pivot], true, 1);
 
 	//Forward-Closure
 	if (debug) cout << "Forward closure\n";
-	while ( * terminateF == false) {
-		* terminateF = true;
-		forward_closure << < numBlocks, numThreadsPerBlock >>> (dVertices, dAdjList, subgraph, visitedF, dterminateF, n, m);
+	while ( * forward_terminate == false) {
+		* forward_terminate = true;
+		forward_closure << < num_blocks, num_threads_per_block >>> (device_nodes, device_adjacency_list, subgraph, forward_visited, device_forward_terminate, num_nodes, num_edges);
 		cudaThreadSynchronize();
 	}
 
 	//Backward-Closure
 	if (debug) cout << "Backward  closure\n";
-	while ( * terminateB == false) {
-		* terminateB = true;
-		forward_closure << < numBlocks, numThreadsPerBlock >>> (dVerticesT, dAdjListT, subgraph, visitedB, dterminateB, n, m);
+	while ( * backward_terminate == false) {
+		* backward_terminate = true;
+		forward_closure << < num_blocks, num_threads_per_block >>> (device_nodes_transpose, device_adjacency_list_transpose, subgraph, backward_visited, device_backward_terminate, num_nodes, num_edges);
 		cudaThreadSynchronize();
 	}
 
 	//Finding 4 Subgraphs		
-	generate_subgraph << < numBlocks, numThreadsPerBlock >>> (pivot, visitedF, visitedB, subgraph, n);
+	generate_subgraph << < num_blocks, num_threads_per_block >>> (pivot, forward_visited, backward_visited, subgraph, num_nodes);
 
-	// Tu ti ricordi come si fa la ricorsione in cuda? io no
-	// forse va fatto con la programmazione dinamica?
-	cudaFree(dVertices);
-	cudaFree(dAdjList);
-	cudaFree(dVerticesT);
-	cudaFree(dAdjListT);
+	cudaFree(device_nodes);
+	cudaFree(device_adjacency_list);
+	cudaFree(device_nodes_transpose);
+	cudaFree(device_adjacency_list_transpose);
 	cudaFree(subgraph);
-	cudaFree(visitedF);
-	cudaFree(visitedB);
-	cudaFreeHost(terminateF);
-	cudaFreeHost(terminateB);
+	cudaFree(forward_visited);
+	cudaFree(backward_visited);
+	cudaFreeHost(forward_terminate);
+	cudaFreeHost(backward_terminate);
 }
 
 int main(int argc, char ** argv) {
@@ -236,64 +232,64 @@ int main(int argc, char ** argv) {
 	std::getline(infile, line);
 	std::istringstream iss(line);
 
-	char c;
-	int m, n, x, i;
+	char percentage_sign;
+	int num_edges, num_nodes, edge_weight, i;
 
-	iss >> c; //Questo dovrebbe essere il simbolo "%" nei file, che viene acquisito qui, ma poi mai più usato
-	iss >> m;
-	iss >> n;
-	iss >> x;
-
-	std::cout << "Number of vertices: " << n << endl;
-	std::cout << "Number of edges: " << m << endl;
-
-	//Inizializzazione delle strutture dati principali
-	int *Vertices = new int[n];
-	int *AdjacencyList = new int[m];
-
-	int *Vertices_Transpose = new int[n];
-	int *AdjacencyList_Transpose = new int[m];
-
-	for (i = 0; i < n; i++){
-		Vertices[i] = 0;
-		Vertices_Transpose[i] = 0;
-	}
+	iss >> percentage_sign; //Questo dovrebbe essere il simbolo "%" nei file, che viene acquisito qui, ma poi mai più usato
+	iss >> num_edges;
+	iss >> num_nodes;
+	iss >> edge_weight;
 
 	infile.close();
 
+	std::cout << "Number of nodes: " << num_nodes << endl;
+	std::cout << "Number of edges: " << num_edges << endl;
+
+	//Inizializzazione delle strutture dati principali
+	int *nodes = new int[num_nodes];
+	int *adjacency_list = new int[num_edges];
+	int *nodes_transpose = new int[num_nodes];
+	int *adjacency_list_transpose = new int[num_edges];
+
+    // Inizializzazione delle liste
+	for (i = 0; i < num_nodes; i++){
+		nodes[i] = 0;
+		nodes_transpose[i] = 0;
+	}
+
 	// Creazione delle liste di adiacenza
-	adj_list(filename, Vertices, AdjacencyList);
+	adj_list(filename, nodes, adjacency_list);
 
 	// Creazione delle liste di adiacenza del grafo trasposto (per la backward clousure)
 	// Forse si può evitare la ripetizione di codice usando il codice di adj_list leggermente modificato
-	reverse_adj_list(filename, Vertices_Transpose, AdjacencyList_Transpose);
+	reverse_adj_list(filename, nodes_transpose, adjacency_list_transpose);
 
 	if (debug) {
 		cout << " Adj List " << endl;
 		cout << " ---O(V) \n";
-		for (i = 0; i < n; i++) {
-			cout << "Vertices[" << i << "] : " << Vertices[i] << endl;
+		for (i = 0; i < num_nodes; i++) {
+			cout << "nodes[" << i << "] : " << nodes[i] << endl;
 		}
 		cout << " ---O(E) \n";
-		for (i = 0; i < m; i++) {
-			cout << "AdjacencyList[" << i << "] : " << AdjacencyList[i] << endl;
+		for (i = 0; i < num_edges; i++) {
+			cout << "adjacency_list[" << i << "] : " << adjacency_list[i] << endl;
 		}
 
 		cout << " Transpose Adj List " << endl;
 		cout << " ---O(V) \n";
-		for (i = 0; i < n; i++) {
-			cout << "Vertices[" << i << "] : " << Vertices_Transpose[i] << endl;
+		for (i = 0; i < num_nodes; i++) {
+			cout << "nodes[" << i << "] : " << nodes_transpose[i] << endl;
 		}
 		cout << " ---O(E) \n";
-		for (i = 0; i < m; i++) {
-			cout << "AdjacencyList[" << i << "] : " << AdjacencyList_Transpose[i] << endl;
+		for (i = 0; i < num_edges; i++) {
+			cout << "adjacency_list[" << i << "] : " << adjacency_list_transpose[i] << endl;
 		}
 	}
 
-	fw_bw(n, m, Vertices, AdjacencyList, Vertices_Transpose, AdjacencyList_Transpose);
+	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
-	delete(Vertices);
-	delete(AdjacencyList);
-	delete(Vertices_Transpose);
-	delete(AdjacencyList_Transpose);
+	delete(nodes);
+	delete(adjacency_list);
+	delete(nodes_transpose);
+	delete(adjacency_list_transpose);
 }

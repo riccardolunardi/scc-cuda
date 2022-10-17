@@ -19,69 +19,62 @@ using namespace std;
 	} while (false)
 #endif
 
-void reverse_adj_list(const char *filename, int *Vertices, int *AdjacencyList)
-{
+void reverse_adj_list(const char *filename, int *nodes, int *adjacency_list) {
 	std::string line;
 	std::ifstream infile(filename);
 
-	int *edges_count_per_vertex;
+	int *edges_count_per_node;
 
 	std::getline(infile, line);
 	std::getline(infile, line);
 	std::istringstream iss(line);
 
-	char c;
-	iss >> c;
+	char percentage_sign;
+	iss >> percentage_sign;
 
-	int m, n, x, u, v;
+	int num_edges, num_nodes, edge_weight, first_node_of_edge, second_node_of_edge;
 	int i;
 
-	iss >> m;
-	iss >> n;
-	iss >> x;
+	iss >> num_edges;
+	iss >> num_nodes;
+	iss >> edge_weight;
 
 	DEBUG_MSG("---- Obtaining the reversed adjacency list ----");
-	DEBUG_MSG("Number of edges: " << m);
-	DEBUG_MSG("Number of vertices: " << n);
+	DEBUG_MSG("Number of edges: " << num_edges);
+	DEBUG_MSG("Number of nodes: " << num_nodes);
 
-	edges_count_per_vertex = new int[n];
+	edges_count_per_node = new int[num_nodes];
 
-	int oldu = -1;
 	//-------------------------------------------------------------------------
 	//-------------------------Filling O(V) list-------------------------------
 	//-------------------------------------------------------------------------
-	while (std::getline(infile, line))
-	{
-
+	while (std::getline(infile, line)) {
 		std::istringstream iss(line);
 
-		iss >> v;
-		iss >> u;
+		iss >> first_node_of_edge;
+		iss >> second_node_of_edge;
 
-		Vertices[u - 1] += 1;
+		nodes[second_node_of_edge - 1] += 1;
 
-		while (iss >> x)
-		{
-		}
+		while (iss >> x) {}
 	}
 
 	int temp1, temp2 = 0;
-	for (i = 1; i < n; i++)
-	{
-		temp1 = Vertices[i];
-		Vertices[i] = Vertices[i - 1] + temp2;
+	for (i = 1; i < num_nodes; i++) {
+		temp1 = nodes[i];
+		nodes[i] = nodes[i - 1] + temp2;
 		temp2 = temp1;
 	}
 
 	DEBUG_MSG("----O(V) list----");
 
-	for (i = 0; i < n; i++)
-	{
-		if (i == 0)
-			Vertices[i] = 0;
+	for (i = 0; i < num_nodes; i++) {
+		if (i == 0) {
+			nodes[i] = 0;
+        }
 
-		DEBUG_MSG("Vertices[" << i << "] : " << Vertices[i]);
-		edges_count_per_vertex[i] = Vertices[i];
+		DEBUG_MSG("nodes[" << i << "] : " << nodes[i]);
+		edges_count_per_node[i] = nodes[i];
 	}
 
 	DEBUG_MSG("\n");
@@ -96,36 +89,31 @@ void reverse_adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	std::getline(infile, line);
 
 	int idx = 0;
-	oldu = -1;
+	int old_second_node_of_edge = -1;
 
 	// qui non ci ero mai arrivato
-	while (std::getline(infile, line))
-	{
+	while (std::getline(infile, line)) {
 		std::istringstream iss(line);
 
-		iss >> v;
-		iss >> u;
+		iss >> first_node_of_edge;
+		iss >> second_node_of_edge;
 
-		oldu = u - 1;
-		idx = edges_count_per_vertex[oldu];
+		old_second_node_of_edge = second_node_of_edge - 1;
+		idx = edges_count_per_node[old_second_node_of_edge];
 
-		AdjacencyList[idx] = v;
-		edges_count_per_vertex[oldu] += 1;
+		adjacency_list[idx] = first_node_of_edge;
+		edges_count_per_node[old_second_node_of_edge] += 1;
 
-		while (iss >> x)
-		{
-		}
+		while (iss >> x) {}
 	}
 
-	if (debug)
-	{
+	if (debug) {
 		cout << "----O(E) list----\n";
-		for (i = 0; i < m; i++)
-		{
-			cout << "AdjacencyList[" << i << "] : " << AdjacencyList[i] << endl;
+		for (i = 0; i < num_edges; i++) {
+			cout << "adjacency_list[" << i << "] : " << adjacency_list[i] << endl;
 		}
 		cout << endl << endl;
 	}
 	infile.close();
-	delete (edges_count_per_vertex);
+	delete (edges_count_per_node);
 }
