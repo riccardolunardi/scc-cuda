@@ -52,12 +52,12 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	iss >> n;
 	iss >> x;
 
-	DEBUG_MSG("Obtaining the adjacency list...");
+	DEBUG_MSG("---- Obtaining the adjacency list ----");
 	DEBUG_MSG("Number of edges: " << m);
 	DEBUG_MSG("Number of vertices: " << n);
 
 	// uedges è il numero di arco che si sta elaborando nel ciclo corrente
-	int uedges = 0;
+	// int uedges = 0;
 	int oldu = 0;
 
 	//-------------------------------------------------------------------------
@@ -70,44 +70,30 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	Il risultato è lista una lista di lunghezza |V|, a cui ogni nodo (identificato da l'indice) viene
 	associato il numero di nodi uscenti (out degree)
 	*/
-	while (std::getline(infile, line)) // Finché nel file ci sono righe da leggere
+	while (std::getline(infile, line))
 	{
-		// Lettura della riga
+
 		std::istringstream iss(line);
+
 		iss >> u;
-		DEBUG_MSG("oldu : " << oldu << ", u-1 : " << u-1);
+		iss >> v;
 
-		// Se il nodo "u" che si sta leggendo è lo stesso della riga prima...
-		if (oldu == (u - 1))
-		{
-			// Allora somma 1 ai suoi archi uscenti
-			uedges++;
-		}
-		else
-		{
-			// Se questo non è la prima iterazione (oldu è minore di 0 solo alla prima iterazione del ciclo)
-			if (oldu >= 0)
-			{
-				// Associa al nodo il numero di archi
-				Vertices[oldu] = uedges;
-				DEBUG_MSG("Vertices["<<oldu<<"] : " << Vertices[oldu]);
-			}
+		Vertices[u - 1] += 1;
 
-			// Reinizializza le variabili, ovvero assegnando il numero di archi base (1) e
-			// impostando come oldu il nodo appena elaborato
-			uedges = 1;
-			oldu = u - 1;
-		}
-
-		// x è una variabile di debuff, ovvero scarta tutti gli input dopo "u v", in modo da finire la lettura della riga
+		//Debuffing, si legge finché non c'è niente
 		while (iss >> x)
 		{
 		}
 	}
 
-	// Ultimo assegnamento
-	Vertices[oldu] = uedges;
-	DEBUG_MSG("Vertices["<<oldu<<"] : " << Vertices[oldu]);
+	if(debug){
+		cout << "Counting how many arcs a node has (temporary)" << endl;
+		for (i = 0; i < n; i++)
+		{
+			cout << "Vertices[" << i << "]: " << Vertices[i] << endl;
+		}
+		cout << endl;
+	}
 
 	/*
 	In questa sezione, quello che prima era l'out degree di un singolo nodo, ora diventa l'out degree
@@ -115,44 +101,25 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 	in modo tale da permettere alla struttura dati di poter accedere (tramite questo valore appena calcolato)
 	al giusto indice della seconda lista.
 	*/
-	int temp1 = 0;
-	int temp2 = 0;
+	int temp1, temp2 = 0;
 	for (i = 1; i < n; i++)
 	{
 		temp1 = Vertices[i];
 		Vertices[i] = Vertices[i - 1] + temp2;
-		cout << temp1 << endl;
-		cout << temp2 << endl;
 		temp2 = temp1;
-		DEBUG_MSG(i << " : " << Vertices[i]);
 	}
 
-	// TODO: Check the next section of code can be replaced with this:
-	/*
+	//Il primo indice sarà sempre uguale a 0
 	Vertices[0] = 0;
-	if (debug){
-		cout << "----O(V) list----\n";
+
+	if(debug){
+		cout << "----O(V) list----" << endl;
 		for (i = 0; i < n; i++){
-			cout << "Vertices[" << i << "] : " << Vertices[i];
+			cout << "Vertices[" << i << "] : " << Vertices[i] << endl;
 		}
-		cout << "----O(V) list----\n";
+		cout << endl << endl;
 	}
-	*/
-
-	DEBUG_MSG("----O(V) list----\n");
-
-	for (i = 0; i < n; i++)
-	{
-		if (i == 0)
-			Vertices[i] = 0;
-		// else if(Vertices[i] == Vertices[i-1])
-		//	Vertices[i-1] = -1;
-
-		DEBUG_MSG("Vertices[" << i << "] : " << Vertices[i]);
-	}
-
-	DEBUG_MSG("----O(V) list----\n");
-
+	
 	infile.close();
 
 	//-------------------------------------------------------------------------
@@ -174,7 +141,6 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 		// Lettura degli archi
 		iss >> u;
 		iss >> v;
-
 		// È vero che l'ultimo nodo elaborato dal ciclo è uguale a quello corrente?
 		if (oldu == u - 1)
 		{
@@ -206,7 +172,7 @@ void adj_list(const char *filename, int *Vertices, int *AdjacencyList)
 		{
 			cout << "AdjacencyList[" << i << "] : " << AdjacencyList[i] << endl;
 		}
-		cout << "----O(E) list----\n";
+		cout << "-----------------------------------------" << endl;
 	}
 
 	infile.close();

@@ -12,6 +12,8 @@
 #define debug 1
 using namespace std;
 
+// cioè almeno sembra, ma se divide in 4 sta facendo OBF? //cristo sandro
+
 __global__ void trimming(int * Vertices, int * VerticesT, int * AdjListT, int n, int m, bool * VisitedF, bool * VisitedB, int * subgraph, bool * terminateF) {
 	int i, ListPointer1, ListPointer2;
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -99,20 +101,28 @@ __global__ void forward_closure(int * dVertices, int * dAdjList, int * subgraph,
 __global__ void generate_subgraph(int pivot, bool * visitedF, bool * visitedB, int * subgraph, int numVertices) {
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	if (id < numVertices) {
+		// Il nodo è stato visitato sia dalla backward che dalla forward
+		// Il nodo fa parte di una SCC
 		if (visitedF[id] == visitedB[id] && visitedF[id] == true) {
 			subgraph[id] = 4 * pivot;
 		}
 
+		// Il nodo "id" è stato visitato dalla forward, ma non dalla backward
+		// Si deve calcolare FB(F\B)
 		if (visitedF[id] != visitedB[id] && visitedF[id] == true) {
 			subgraph[id] = 4 * pivot + 1;
 			visitedF[id] = visitedB[id] = false;
 		}
 
+		// Il nodo "id" è stato visitato dalla backward, ma non dalla forward
+		// Si deve calcolare FB(B\F)
 		if (visitedF[id] != visitedB[id] && visitedB[id] == true) {
 			subgraph[id] = 4 * pivot + 2;
 			visitedF[id] = visitedB[id] = false;
 		}
 
+		// Il nodo non è stato visitato da nessuno
+		// Si deve calcolare FB( V \ (B U F))
 		if (visitedF[id] == visitedB[id] && visitedB[id] == false) {
 			subgraph[id] = 4 * pivot + 3;
 			visitedF[id] = visitedB[id] = false;
@@ -155,9 +165,11 @@ void fw_bw(int n, int m, int * Vertices, int * AdjacencyList, int * Vertices_Tra
 	numBlocks = n / numThreadsPerBlock + (n % numThreadsPerBlock == 0 ? 0 : 1);
 
 	if (debug)
-		cout << "num blocks: " << numBlocks << " ,num threads= " << numThreadsPerBlock << endl;
+		cout << "N° blocks: " << numBlocks << " ,n° threads: " << numThreadsPerBlock << endl;
 
 	// Complete Trimming
+	FWD reach c'è (anche bwd), trimming c'è pivot non ho visto come sia
+	// Quindi prima di tutto chiama trimming, yess
 	while ( /**terminateF == false ||*/ i < 5) {
 		* terminateF = true;
 		trimming << < numBlocks, numThreadsPerBlock >>> (dVertices, dVerticesT, dAdjListT, n, m, visitedF, visitedB, subgraph, dterminateF);
@@ -167,7 +179,7 @@ void fw_bw(int n, int m, int * Vertices, int * AdjacencyList, int * Vertices_Tra
 	}
 
 	* terminateF = false;
-	pivot = 0;
+	pivot = 0; //bella
 	cudaMemset( & visitedF[pivot], true, 1);
 	cudaMemset( & visitedB[pivot], true, 1);
 
@@ -190,6 +202,8 @@ void fw_bw(int n, int m, int * Vertices, int * AdjacencyList, int * Vertices_Tra
 	//Finding 4 Subgraphs		
 	generate_subgraph << < numBlocks, numThreadsPerBlock >>> (pivot, visitedF, visitedB, subgraph, n);
 
+	// Tu ti ricordi come si fa la ricorsione in cuda? io no
+	// forse va fatto con la programmazione dinamica?
 	cudaFree(dVertices);
 	cudaFree(dAdjList);
 	cudaFree(dVerticesT);
@@ -234,17 +248,16 @@ int main(int argc, char ** argv) {
 	std::cout << "Number of edges: " << m << endl;
 
 	//Inizializzazione delle strutture dati principali
-	int *Vertices;
-	int *AdjacencyList;
+	int *Vertices = new int[n];
+	int *AdjacencyList = new int[m];
 
-	int *Vertices_Transpose;
-	int *AdjacencyList_Transpose;
+	int *Vertices_Transpose = new int[n];
+	int *AdjacencyList_Transpose = new int[m];
 
-	Vertices = new int[n];
-	AdjacencyList = new int[m];
-
-	Vertices_Transpose = new int[n];
-	AdjacencyList_Transpose = new int[m];
+	for (i = 0; i < n; i++){
+		Vertices[i] = 0;
+		Vertices_Transpose[i] = 0;
+	}
 
 	infile.close();
 
