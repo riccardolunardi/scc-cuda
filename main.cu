@@ -18,47 +18,74 @@ __global__ void trimming(int * nodes, int * nodes_transpose, int * adjacency_lis
 	bool elim = true;
 
 	if (id < num_nodes) {
+		// Significato del print:
+		// Da dove leggere i nodi collegati all'id-esimo nodo : da dove leggere i nodi collegati all'id-esimo+1 nodo, ovvero il successivo
 		printf("FW :: v[%d]=%d : v[%d]=%d \n", id, nodes[id], id + 1, nodes[id + 1]);
 		//printf("BW :: v[%d]=%d : v[%d]=%d \n", id, nodes_transpose[id], id+1, nodes_transpose[id+1]);
-
+		
+		// Se l'id-esimo nodo non è ancora stato visitato...
 		if (forward_visited[id] == false) {
-
+			// Se stiamo trattando il nodo finale... (l'id, ovvero l'indice, sarà uguale al numero di nodi totale, quindi sarà l'ultimo)
 			if (id == num_nodes - 1) {
+				// ATTENZIONE: elim = true; non ha senso di essere qui, giusto? Tanto è già messo sopra...
 				elim = true;
+				// Se il nodo finale (quindi id), punta all'ultimo nodo possibile sulla lista degli archi, vuol dire che tale nodo
+				// avrà outdegree (o indegree) uguale a 0, quindi può essere eliminato
+				// ATTENZIONE: Secondo me dovrebbe essere num_edges-1, perché se la lista è lunga 14, per accedere all'ultima posizione bisogna usare come indice "13".
+				//             Quindi, se nodes[id] punta alla 13 posizione, ma ci sono 14 elementi, questo sarà sempre false (stessa cosa per il trasposto)
 				if (nodes[id] == num_edges || nodes_transpose[id] == num_edges) {
+					printf("Nodo %d che punta a %d", id, nodes[id]);
 					forward_visited[id] = true;
 					backward_visited[id] = true;
 					subgraph[id] = 4 * id + 1;
-					* forward_terminate = false;
-					printf("Trim e : v[%d] : %d, setting forward_terminate to %d \n", id, subgraph[id], * forward_terminate);
+					*forward_terminate = false;
+					printf("Trimming (node pointing to last arc) -> v[%d] : %d, setting forward_terminate to %d \n", id, subgraph[id], * forward_terminate);
 				}
+			// Se invece il nodo corrente comincia a leggere i suoi archi dalla stessa posizione del nodo successivo
+			// oppure
+			// Se il nodo corrente comincia a leggere i suoi archi dalla stessa posizione del nodo successivo nel grafo trasposto
 			} else if ((nodes[id] == nodes[id + 1]) || (nodes_transpose[id] == nodes_transpose[id + 1])) {
+				// Se il nodo corrente comincia a leggere gli archi dalla stessa posizione del nodo successivo
+				// vuol dire che quel nodo non punta a niente (o nel grafo normale o in quello trasposto).
+				// Questo comporta che il nodo ha out-degree (o in-degree) uguale a 0. Come da letteratura, questo nodo può essere trimmato
+				// "A vertex cannot be part of a non-trivial strongly connected component if its in-degree (out-degree) is zero."
 				forward_visited[id] = true;
 				backward_visited[id] = true;
 				subgraph[id] = 4 * id + 1;
-				* forward_terminate = false;
-				printf("Trim e : v[%d] : %d, setting forward_terminate to %d \n", id, subgraph[id], * forward_terminate);
+				*forward_terminate = false;
+				printf("Trimming (outdegree/indegree is zero) -> v[%d] : %d, subgraph[%d]=%d setting forward_terminate to %d \n", id, nodes[id], id, subgraph[id], *forward_terminate);
 			} else {
-				list_pointer_1 = nodes_transpose[id];
+				// Si arriva qua se i due nodi adiacenti non leggono gli archi dalla stessa posizione
+				list_pointer_1 = nodes_transpose[id]; // Chi punta il nodo "id" nel grafo trasposto? (oppure, chi viene puntato da "id" nel grafo normale?)
 
+				//DOMANDA: Questo caso esiste veramente? Non è una condizione che viene soddisfatta prima? (Riga 29)
 				if (id == num_nodes - 1)
 					list_pointer_2 = num_edges;
 				else
 					list_pointer_2 = nodes_transpose[id + 1];
 
+				// Qui si va ad eliminare un nodo nel caso che un nodo di un certo sottografo non abbia predecessori (o successori) in tale sottografo
+				printf("Reading pointing nodes of %d from position %d to %d\n", id, list_pointer_1, list_pointer_2);
 				for (i = list_pointer_1; i < list_pointer_2; i++) {
-					printf("iteration %d subgraph[%d]=%d, subgraph[%d]=%d\n", i, adjacency_list_transpose[i] - 1, subgraph[adjacency_list_transpose[i] - 1], id, subgraph[id]);
+					// Si usa (adjacency_list_transpose[i] - 1) perché nella lista di adiacenza i nodi partono da 1 e non da 0
+					printf("Iteration %d: subgraph[%d]=%d, subgraph[%d]=%d\n", i, adjacency_list_transpose[i] - 1, subgraph[adjacency_list_transpose[i] - 1], id, subgraph[id]);
+					// Se l'id-esimo nodo e il nodo che punta nella lista di adiacenza fanno parte dello stesso grafo...
 					if (subgraph[adjacency_list_transpose[i] - 1] == subgraph[id]) {
+						// ...allora non va sicuramente cancellato
 						elim = false;
 						break;
 					}
 				}
+				// COMMENTO DA CONTROLLARE
+				// Se il nodo va trimmato, vuol dire che un suo predecessore/successore non era nello stesso sottografo (Gian, dalla teoria capisco questo,
+				// "The goal of the procedure is to identify vertices of the underlying subgraph that have no immediate predecessors (in the case of leading components) or 
+				// immediate successors (in the case of terminal components) in the subgraph.", ma non capisco se è quello che sta facendo qua)
 				if (elim == true) {
 					forward_visited[id] = true;
 					backward_visited[id] = true;
 					subgraph[id] = 4 * id + 1;
 					* forward_terminate = false;
-					printf("Trim e : v[%d] : %d, setting forward_terminate to %d,subgraph to %d \n", id, subgraph[id], * forward_terminate, subgraph[id]);
+					printf("Trimming (predecessor/successor wasn't in the same subgraph) -> v[%d] : %d, setting forward_terminate to %d,subgraph to %d \n", id, subgraph[id], * forward_terminate, subgraph[id]);
 				}
 
 			}
@@ -163,7 +190,7 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	num_blocks = num_nodes / num_threads_per_block + (num_nodes % num_threads_per_block == 0 ? 0 : 1);
 
 	if (debug)
-		cout << "N° blocks: " << num_blocks << " ,n° threads: " << num_threads_per_block << endl;
+		cout << "Number of blocks: " << num_blocks << endl << "Number of threads: " << num_threads_per_block << endl;
 
 	// Complete Trimming
 	// while (*forward_terminate == false || i < 5) {                  // Il *forward_terminate == false era commentato, ho commentato tutta la riga invece
@@ -171,8 +198,8 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	while (i < 5) {
 		* forward_terminate = true;
 		trimming << < num_blocks, num_threads_per_block >>> (device_nodes, device_nodes_transpose, device_adjacency_list_transpose, num_nodes, num_edges, forward_visited, backward_visited, subgraph, device_forward_terminate);
-		cudaThreadSynchronize();
-		printf("terminate : %d \n", * forward_terminate);
+		cudaDeviceSynchronize();
+		printf("Terminate : %d \n", * forward_terminate);
 		i++;
 	}
 
@@ -264,7 +291,7 @@ int main(int argc, char ** argv) {
 	// Forse si può evitare la ripetizione di codice usando il codice di adj_list leggermente modificato
 	reverse_adj_list(filename, nodes_transpose, adjacency_list_transpose);
 
-	if (debug) {
+	/* if (debug) {
 		cout << " Adj List " << endl;
 		cout << " ---O(V) \n";
 		for (i = 0; i < num_nodes; i++) {
@@ -284,7 +311,7 @@ int main(int argc, char ** argv) {
 		for (i = 0; i < num_edges; i++) {
 			cout << "adjacency_list[" << i << "] : " << adjacency_list_transpose[i] << endl;
 		}
-	}
+	} */
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
