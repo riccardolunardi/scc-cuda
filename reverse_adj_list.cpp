@@ -56,7 +56,7 @@ void reverse_adj_list(const char *filename, int *nodes, int *adjacency_list) {
 
 		nodes[second_node_of_edge - 1] += 1;
 
-		while (iss >> x) {}
+		while (iss >> edge_weight) {}
 	}
 
 	int temp1, temp2 = 0;
@@ -104,7 +104,7 @@ void reverse_adj_list(const char *filename, int *nodes, int *adjacency_list) {
 		adjacency_list[idx] = first_node_of_edge;
 		edges_count_per_node[old_second_node_of_edge] += 1;
 
-		while (iss >> x) {}
+		while (iss >> edge_weight) {}
 	}
 
 	if (debug) {

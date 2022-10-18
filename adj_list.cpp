@@ -131,7 +131,7 @@ void adj_list(const char *filename, int *nodes, int *adjacency_list) {
 		iss >> first_node_of_edge;
 		iss >> second_node_of_edge;
 		// È vero che l'ultimo nodo elaborato dal ciclo è uguale a quello corrente?
-		if (oldfirst_node_of_edge == first_node_of_edge - 1) {
+		if (old_first_node_of_edge == first_node_of_edge - 1) {
 			// Se ci capita qui, vuol dire che si sta lavorando sempre con lo stesso nodo "first_node_of_edge", quindi
 			// di aggiungono in successione i nodi puntati da "first_node_of_edge"
 			adjacency_list[idx++] = second_node_of_edge;
