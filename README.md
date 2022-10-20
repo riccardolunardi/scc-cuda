@@ -6,7 +6,7 @@ Risposta con testo in data: 03 ottobre 2022
 
 ## Richiesta
 
-Richiamo alcune definizioni preliminari:
+Richiamo alcune **definizioni** preliminari:
   - 1 grafo diretto: G(V,E) con V insieme dei nodi, con E insieme di archi
   - 1 SCC di G: 1 qualsiasi insieme S (massimale con almeno 2 nodi) tale che per ogni coppia di nodi (x,y) in SCC esiste sempre un cammino diretto
   - Dato 1 insieme di nodi S, prec(S) = { n | n in V-S tale che esiste un arco (n,m) per almeno un qualsiasi nodo m in S }. Quindi prec(S) è l'insieme di tutti i nodi esterni all'insieme S che hanno almeno un arco connesso ad un nodo di S.
@@ -78,12 +78,59 @@ Verranno rappresentate da 2 vettori, dove dati degli archi (u,v):
 I nodi v punteranno ai rispettivi nodi u e viceversa.
 
 Per esempio:
+
 ![Missing image data representation](img/example_representation_data.jpeg "Data representation")
-
-## Come sfruttare la memoria
-
-AHHHHHH BUH, bel casino
 
 ## Algoritmo
 
-CHISSÀ DIO
+Le operazioni identificate essere le più importanti sono le seguenti:
+ * Generazione delle liste di adiacenza
+ * Trovare le tutte SCC del grafo
+ * Eliminare le SCC che non contengono nodi di U
+ * Controllare che le SCC valide non abbiano nodi U che fanno parte dell'insieme prec(S)
+
+Inizialmente si implementerà una versione che esegua queste operazioni in modo separato.
+
+Possibili ottimizzazioni:
+ * Si può evitare di evitare di calcolare le SCC in cui ci sono nodi che non fanno parte di U? _(Magari trimmandoli direttamente)_?
+
+### Algoritmo (_apparentemente_) naive
+
+L'algoritmo più facile è quello di effettuare le quattro operazioni in fasi sequenziali:
+
+**Strutture dati aggiuntive**
+
+* `removed`: vettore |V| che indica se un nodo potrebbe far parte o no di una SCC. Piuttosto di ricalcolare delle nuove liste senza un certo nodo, usiamo questo vettore di flag.
+* `visited`: vettore |V| che indica se un nodo è stato visitato o no almeno da una visita forward o backward 
+* `color`: Anche detto _range_, il vettore color ha lunghezza |V| e assegna ad ogni nodo un "colore" che identifica uno specifico sottografo. Due sottografi diversi hanno due colori diversi
+
+_Opzionali_:
+* `expanded`: vettore |V| che indica se un nodo è sgià stato attraversato o no
+
+~~~
+
+// Fase 1: Creazione delle liste di adiacenza
+adj_list = generate_adj_list(G)
+trasposed_adj_list = generate_trasposed_adj_list(G)
+
+// Fase 2: Calcolo delle SCC
+TRIM(G, SCC, removed)
+PIVOT-GEN(G, SCC, color, removed)
+do
+  FWD-REACH(G, SCC, color, removed, visited, expanded)
+  BWD-REACH(G, SCC, color, removed, visited, expanded)
+  TRIM(G, SCC, removed)
+  UPDATE(G, SCC, color, removed, visited, expanded)
+  PIVOT-GEN(G, SCC, color, removed, visited)
+until (nessun pivot generato)
+
+// Fase 3: Eliminazione delle SCC che non hanno nodi che fanno parte di U
+FILTER-SCC(G, SCC)
+
+// Fase 4: Individuazione delle SCC con prec(S) ∩ U = {}
+prec = PREC-GEN(G, SCC)
+valid_sccs = PREC-CHECK(G, SCC, PREC)
+
+~~~
+
+`valid_sccs` dovrebbe essere il risultato finale
