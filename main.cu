@@ -12,6 +12,20 @@
 #define debug 1
 using namespace std;
 
+#ifdef debug
+#define DEBUG_MSG(str)                 \
+	do                                 \
+	{                                  \
+		std::cout << str << std::endl; \
+	} while (false)
+#else
+#define DEBUG_MSG(str) \
+	do                 \
+	{                  \
+	} while (false)
+#endif
+
+
 __global__ void trimming(int * nodes, int * nodes_transpose, int * adjacency_list_transpose, int num_nodes, int num_edges, bool * forward_visited, bool * backward_visited, int * subgraph, bool * forward_terminate) {
 	int i, list_pointer_1, list_pointer_2;
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -152,6 +166,8 @@ __global__ void generate_subgraph(int pivot, bool * forward_visited, bool * back
 			subgraph[id] = 4 * pivot + 3;
 			forward_visited[id] = backward_visited[id] = false;
 		}
+
+		printf("subgraph[%d]=%d\n", id, subgraph[id]);
 	}
 }
 
@@ -189,13 +205,12 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	num_threads_per_block = 256;
 	num_blocks = num_nodes / num_threads_per_block + (num_nodes % num_threads_per_block == 0 ? 0 : 1);
 
-	if (debug)
-		cout << "Number of blocks: " << num_blocks << endl << "Number of threads: " << num_threads_per_block << endl;
+	DEBUG_MSG("Number of blocks: " << num_blocks << endl << "Number of threads: " << num_threads_per_block);
 
 	// Complete Trimming
-	// while (*forward_terminate == false || i < 5) {                  // Il *forward_terminate == false era commentato, ho commentato tutta la riga invece
-    // DOMANDA: perchè fa 'trimming 5 volte?'
-	while (i < 5) {
+	// La procedura di trimming, secondo la letteratura, deve essere ripetuta finché non ci sono più nodi da rimuovere.
+	// Questo è dovuto al fatto che un nodo, quando rimosso, potrebbe far eliminare altri nodi a catena
+	while (!*forward_terminate) {
 		* forward_terminate = true;
 		trimming << < num_blocks, num_threads_per_block >>> (device_nodes, device_nodes_transpose, device_adjacency_list_transpose, num_nodes, num_edges, forward_visited, backward_visited, subgraph, device_forward_terminate);
 		cudaDeviceSynchronize();
@@ -203,35 +218,45 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 		i++;
 	}
 
-	* forward_terminate = false;
+	*forward_terminate = false;
 	pivot = 0;
 	cudaMemset( & forward_visited[pivot], true, 1);
 	cudaMemset( & backward_visited[pivot], true, 1);
 
 	//Forward-Closure
-	if (debug) cout << "Forward closure\n";
+	DEBUG_MSG("Forward closure");
 	while ( * forward_terminate == false) {
 		* forward_terminate = true;
-		forward_closure << < num_blocks, num_threads_per_block >>> (device_nodes, device_adjacency_list, subgraph, forward_visited, device_forward_terminate, num_nodes, num_edges);
-		cudaThreadSynchronize();
+		forward_closure <<< num_blocks, num_threads_per_block >>> (device_nodes, device_adjacency_list, subgraph, forward_visited, device_forward_terminate, num_nodes, num_edges);
+		cudaDeviceSynchronize();
 	}
 
 	//Backward-Closure
-	if (debug) cout << "Backward  closure\n";
+	DEBUG_MSG("Backward closure");
 	while ( * backward_terminate == false) {
 		* backward_terminate = true;
-		forward_closure << < num_blocks, num_threads_per_block >>> (device_nodes_transpose, device_adjacency_list_transpose, subgraph, backward_visited, device_backward_terminate, num_nodes, num_edges);
-		cudaThreadSynchronize();
+		forward_closure <<< num_blocks, num_threads_per_block >>> (device_nodes_transpose, device_adjacency_list_transpose, subgraph, backward_visited, device_backward_terminate, num_nodes, num_edges);
+		cudaDeviceSynchronize();
 	}
 
-	//Finding 4 Subgraphs		
-	generate_subgraph << < num_blocks, num_threads_per_block >>> (pivot, forward_visited, backward_visited, subgraph, num_nodes);
-
+	//Finding 4 Subgraphs
+	DEBUG_MSG("Generating subgraphs...");
+	generate_subgraph <<< num_blocks, num_threads_per_block >>> (pivot, forward_visited, backward_visited, subgraph, num_nodes);
+	cudaDeviceSynchronize();
+	
+	//cout << num_nodes << endl;
+	//cout << *subgraph[0] << endl;
+	for (i = 0; i < num_nodes; i++) {
+		// printf("subgraph[%d]=%d\n", i, subgraph[i]);
+		cout << subgraph[i] << endl;
+		cout << i << endl;
+	}
+	
 	cudaFree(device_nodes);
 	cudaFree(device_adjacency_list);
 	cudaFree(device_nodes_transpose);
 	cudaFree(device_adjacency_list_transpose);
-	cudaFree(subgraph);
+	// cudaFree(subgraph);
 	cudaFree(forward_visited);
 	cudaFree(backward_visited);
 	cudaFreeHost(forward_terminate);
