@@ -139,6 +139,7 @@ __global__ void forward_closure(int * device_nodes, int * device_adjacency_list,
 
 __global__ void generate_subgraph(int pivot, bool * forward_visited, bool * backward_visited, int * subgraph, int num_nodes) {
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
+
 	if (id < num_nodes) {
 		// Il nodo è stato visitato sia dalla backward che dalla forward
 		// Il nodo fa parte di una SCC
@@ -166,14 +167,12 @@ __global__ void generate_subgraph(int pivot, bool * forward_visited, bool * back
 			subgraph[id] = 4 * pivot + 3;
 			forward_visited[id] = backward_visited[id] = false;
 		}
-
-		printf("subgraph[%d]=%d\n", id, subgraph[id]);
 	}
 }
 
 void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
 	int * device_nodes, * device_adjacency_list, * device_nodes_transpose, * device_adjacency_list_transpose;
-	int * subgraph;
+	int * subgraph_device;
 	bool * forward_visited, * backward_visited;
 	bool * forward_terminate, * backward_terminate, * device_forward_terminate, * device_backward_terminate;
 	int i = 0;
@@ -182,14 +181,14 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	cudaMalloc((void ** ) & device_adjacency_list, num_edges * (sizeof(int)));
 	cudaMalloc((void ** ) & device_nodes_transpose, num_nodes * (sizeof(int)));
 	cudaMalloc((void ** ) & device_adjacency_list_transpose, num_edges * (sizeof(int)));
-	cudaMalloc((void ** ) & subgraph, num_nodes * (sizeof(int)));
+	cudaMalloc((void ** ) & subgraph_device, num_nodes * (sizeof(int)));
 	cudaMalloc((void ** ) & forward_visited, num_nodes * (sizeof(bool)));
 	cudaMalloc((void ** ) & backward_visited, num_nodes * (sizeof(bool)));
 
 	cudaHostAlloc((void ** ) & forward_terminate, 1 * sizeof(bool), cudaHostAllocMapped);
 	cudaHostAlloc((void ** ) & backward_terminate, 1 * sizeof(bool), cudaHostAllocMapped);
 
-	cudaMemset(subgraph, 0, num_nodes * sizeof(int));
+	cudaMemset(subgraph_device, 0, num_nodes * sizeof(int));
 	cudaMemset(forward_visited, false, num_nodes);
 	cudaMemset(backward_visited, false, num_nodes);
 
@@ -212,7 +211,7 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	// Questo è dovuto al fatto che un nodo, quando rimosso, potrebbe far eliminare altri nodi a catena
 	while (!*forward_terminate) {
 		* forward_terminate = true;
-		trimming << < num_blocks, num_threads_per_block >>> (device_nodes, device_nodes_transpose, device_adjacency_list_transpose, num_nodes, num_edges, forward_visited, backward_visited, subgraph, device_forward_terminate);
+		trimming << < num_blocks, num_threads_per_block >>> (device_nodes, device_nodes_transpose, device_adjacency_list_transpose, num_nodes, num_edges, forward_visited, backward_visited, subgraph_device, device_forward_terminate);
 		cudaDeviceSynchronize();
 		printf("Terminate : %d \n", * forward_terminate);
 		i++;
@@ -227,7 +226,7 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	DEBUG_MSG("Forward closure");
 	while ( * forward_terminate == false) {
 		* forward_terminate = true;
-		forward_closure <<< num_blocks, num_threads_per_block >>> (device_nodes, device_adjacency_list, subgraph, forward_visited, device_forward_terminate, num_nodes, num_edges);
+		forward_closure <<< num_blocks, num_threads_per_block >>> (device_nodes, device_adjacency_list, subgraph_device, forward_visited, device_forward_terminate, num_nodes, num_edges);
 		cudaDeviceSynchronize();
 	}
 
@@ -235,28 +234,26 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	DEBUG_MSG("Backward closure");
 	while ( * backward_terminate == false) {
 		* backward_terminate = true;
-		forward_closure <<< num_blocks, num_threads_per_block >>> (device_nodes_transpose, device_adjacency_list_transpose, subgraph, backward_visited, device_backward_terminate, num_nodes, num_edges);
+		forward_closure <<< num_blocks, num_threads_per_block >>> (device_nodes_transpose, device_adjacency_list_transpose, subgraph_device, backward_visited, device_backward_terminate, num_nodes, num_edges);
 		cudaDeviceSynchronize();
 	}
 
 	//Finding 4 Subgraphs
 	DEBUG_MSG("Generating subgraphs...");
-	generate_subgraph <<< num_blocks, num_threads_per_block >>> (pivot, forward_visited, backward_visited, subgraph, num_nodes);
+	generate_subgraph <<< num_blocks, num_threads_per_block >>> (pivot, forward_visited, backward_visited, subgraph_device, num_nodes);
 	cudaDeviceSynchronize();
-	
-	//cout << num_nodes << endl;
-	//cout << *subgraph[0] << endl;
-	for (i = 0; i < num_nodes; i++) {
-		// printf("subgraph[%d]=%d\n", i, subgraph[i]);
-		cout << subgraph[i] << endl;
-		cout << i << endl;
+
+	int * subgraph = new int[num_nodes];
+	cudaMemcpy(subgraph, subgraph_device, sizeof(int) * num_nodes,  cudaMemcpyDeviceToHost);
+	for(int i=0; i < num_nodes; i++) {
+		printf("subgraph[%d] = %d\n", i, subgraph[i]);
 	}
 	
 	cudaFree(device_nodes);
 	cudaFree(device_adjacency_list);
 	cudaFree(device_nodes_transpose);
 	cudaFree(device_adjacency_list_transpose);
-	// cudaFree(subgraph);
+	cudaFree(subgraph_device);
 	cudaFree(forward_visited);
 	cudaFree(backward_visited);
 	cudaFreeHost(forward_terminate);
