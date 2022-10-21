@@ -11,10 +11,13 @@ using namespace std;
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
 	int read_until = 0;
 	for(int v=0; v < num_nodes; v++) {
-		DEBUG_MSG_MAIN("Checking " << v, "...");
-		DEBUG_MSG_MAIN("is_eliminated[" << v << "] -> ", is_eliminated[v]);
-		DEBUG_MSG_MAIN("is_visited[" << v << "] -> ", is_visited[v]);
-		DEBUG_MSG_MAIN("is_expanded["<< v <<"] -> ", is_expanded[v]);	
+		if(debug_main){
+			DEBUG_MSG_MAIN("Checking " << v, "...");
+			DEBUG_MSG_MAIN("is_eliminated[" << v << "] -> ", is_eliminated[v]);
+			DEBUG_MSG_MAIN("is_visited[" << v << "] -> ", is_visited[v]);
+			DEBUG_MSG_MAIN("is_expanded["<< v <<"] -> ", is_expanded[v]);	
+		}
+		
 		if(!is_eliminated[v] && is_visited[v] && !is_expanded[v]) {
 			is_expanded[v] = true;
 
@@ -26,10 +29,12 @@ void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, i
 			DEBUG_MSG_MAIN("	u va da " << nodes[v] << " a ", read_until - 1);
 
 			for(int u = nodes[v]; u < read_until; u++) {		
+				if (debug_main){
 				DEBUG_MSG_MAIN("		Nodo " << v << " connesso a nodo ", adjacency_list[u]);	
 				DEBUG_MSG_MAIN("		is_eliminated[" << adjacency_list[u] << "] -> ", is_eliminated[adjacency_list[u]]);
 				DEBUG_MSG_MAIN("		is_visited[" << adjacency_list[u] << "] -> ", is_visited[adjacency_list[u]]);
 				DEBUG_MSG_MAIN("		colors["<<v<<"] == colors["<<adjacency_list[u]<<"] -> " << colors[v] << " == ", colors[adjacency_list[u]]);
+				}
 				if(!is_eliminated[adjacency_list[u]] && !is_visited[adjacency_list[u]] && colors[v] == colors[adjacency_list[u]]) {
 					DEBUG_MSG_MAIN("			is_visited[" << adjacency_list[u] << "] -> ", "TRUE");
 					is_visited[adjacency_list[u]] = true;
@@ -38,22 +43,6 @@ void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, i
 			}
 		}
 	}
-
-	// DEBUG_MSG_MAIN('1','2');
-    // for(int i=0; i < num_nodes; i++) {
-	// 	DEBUG_MSG_MAIN('3','4');
-    //     if(is_visited[i]) {
-	// 		DEBUG_MSG_MAIN('5','6');
-    //         for(int j = nodes[i]; j < nodes[i+1]; j++) {
-	// 			DEBUG_MSG_MAIN('7','8');
-    //             if((colors[i] == colors[j]) && (is_visited[j] == false)) {
-	// 				DEBUG_MSG_MAIN('9','10');
-	// 				is_visited[j] = true;
-	// 				stop = false;
-    //             } 
-    //         }
-    //     }
-    // }
 }
 
 void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded) {
@@ -70,7 +59,6 @@ void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 		for (int i = 0; i < num_nodes; i++){
 			DEBUG_MSG_MAIN("is_visited[" << i << "] -> ", is_visited[i]);
 		}
-		//break;
     }
 }
 
@@ -114,7 +102,6 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
         trimming(num_nodes, num_edges, nodes, adjacency_list, is_eliminated);
         pivot_selection(pivots, colors, fw_is_visited, bw_is_visited, is_eliminated);
         update(colors, fw_is_visited, bw_is_visited, is_eliminated, stop);
-		break;
     }
 
     for (int i = 0; i < num_nodes; i++){
