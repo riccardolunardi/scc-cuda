@@ -1,5 +1,4 @@
-#include "adj_list.cpp"
-#include "reverse_adj_list.cpp"
+#include "utils.cpp"
 
 #define debug_main true
 using namespace std;
@@ -107,32 +106,19 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	}
 }
 
-
 int main(int argc, char ** argv) {
 	if (argc != 2) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
 		return -1;
 	}
 	const char *filename = argv[1];
-	char percentage_sign;
-	int num_edges, num_nodes;
+    ifstream infile(filename);
+	int num_nodes, num_edges;
 
-    /* ---- INIZIO LETTURA ---- */
-	//Così sembra che la prima riga sia letteralmente scartata
-	std::string line;
-	std::ifstream infile(filename);
-	std::getline(infile, line);
-	std::getline(infile, line);
-	std::istringstream iss(line);
-    //Questo dovrebbe essere il simbolo "%" nei file, che viene acquisito qui, ma poi mai più usato
-	iss >> percentage_sign;
-	iss >> num_edges;
-	iss >> num_nodes;
-	infile.close();
+    read_heading_numbers(infile, num_nodes, num_edges);
 
-    DEBUG_MSG_MAIN("Number of nodes: ", num_nodes);
-    DEBUG_MSG_MAIN("Number of edges: ", num_edges);
-    /* ---- FINE LETTURA ---- */
+    DEBUG_MSG_UTILS("Number of nodes: ", num_nodes);
+    DEBUG_MSG_UTILS("Number of edges: ", num_edges);
 
 	// Definizione strutture dati principali
 	int *nodes = new int[num_nodes];
@@ -147,15 +133,26 @@ int main(int argc, char ** argv) {
 	}
 	for (int i = 0; i < num_edges; i++){
 		adjacency_list[i] = 0;
-		adjacency_list_transpose[i] = 0;
+		adjacency_list_transpose[i] = -1;
 	}
 
-	// Creazione delle liste di adiacenza
-	adj_list(filename, nodes, adjacency_list);
+    create_graph_from_file(infile, num_nodes, num_edges, nodes, adjacency_list);
 
-	// Creazione delle liste di adiacenza del grafo trasposto (per la backward clousure)
-	// Forse si può evitare la ripetizione di codice usando il codice di adj_list leggermente modificato
-	reverse_adj_list(filename, nodes_transpose, adjacency_list_transpose);
+    for(int i = 0; i < num_nodes; i++) {
+        DEBUG_MSG_UTILS("nodes[" + to_string(i) + "] = ", nodes[i]);
+    }
+    for(int i = 0; i < num_edges; i++) {
+        DEBUG_MSG_UTILS("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i]);
+    }
+
+    create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
+
+	for(int i = 0; i < num_nodes; i++) {
+        DEBUG_MSG_UTILS("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i]);
+    }
+    for(int i = 0; i < num_edges; i++) {
+        DEBUG_MSG_UTILS("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i]);
+    }
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 }
