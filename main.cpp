@@ -1,5 +1,6 @@
 #include "adj_list.cpp"
 #include "reverse_adj_list.cpp"
+#include "utils.cpp"
 
 #define debug_main true
 using namespace std;
