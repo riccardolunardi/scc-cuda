@@ -3,21 +3,13 @@
 #include <string>
 #include <iostream>
 
-#define debug 1
+#define debug true
 using namespace std;
 
-#ifdef debug
-#define DEBUG_MSG(str)                 \
-	do                                 \
-	{                                  \
-		std::cout << str << std::endl; \
-	} while (false)
-#else
-#define DEBUG_MSG(str) \
-	do                 \
-	{                  \
-	} while (false)
-#endif
+#define DEBUG_MSG(str){                     	\
+    if(debug)                            		\
+        std::cout << str<< std::endl;         	\
+}
 
 void reverse_adj_list(const char *filename, int *nodes, int *adjacency_list) {
 	std::string line;
@@ -98,7 +90,7 @@ void reverse_adj_list(const char *filename, int *nodes, int *adjacency_list) {
 		iss >> first_node_of_edge;
 		iss >> second_node_of_edge;
 
-		old_second_node_of_edge = second_node_of_edge - 1;
+		old_second_node_of_edge = second_node_of_edge;
 		idx = edges_count_per_node[old_second_node_of_edge];
 
 		adjacency_list[idx] = first_node_of_edge;

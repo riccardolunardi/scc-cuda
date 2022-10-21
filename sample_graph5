@@ -1,16 +1,16 @@
 % asym unweighted (https://en.wikipedia.org/wiki/File:Scc-1.svg)
 % 14 8
+0 1
 1 2
+1 4
+1 5
 2 3
-2 5
 2 6
-3 4
+3 2
 3 7
-4 3
-4 8
-5 1
+4 0
+4 5
 5 6
-6 7
+6 5
 7 6
-8 7
-8 4
+7 3

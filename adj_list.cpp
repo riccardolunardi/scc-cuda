@@ -3,21 +3,13 @@
 #include <string>
 #include <iostream>
 
-#define debug 1
+#define debug true
 using namespace std;
 
-#ifdef debug
-#define DEBUG_MSG(str)                 \
-	do                                 \
-	{                                  \
-		std::cout << str << std::endl; \
-	} while (false)
-#else
-#define DEBUG_MSG(str) \
-	do                 \
-	{                  \
-	} while (false)
-#endif
+#define DEBUG_MSG(str){                     	\
+    if(debug)                            		\
+        std::cout << str<< std::endl;         	\
+}
 
 /*
 Informazioni base da ricordare:
