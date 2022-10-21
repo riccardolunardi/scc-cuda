@@ -46,7 +46,7 @@ void reverse_adj_list(const char *filename, int *nodes, int *adjacency_list) {
 		iss >> first_node_of_edge;
 		iss >> second_node_of_edge;
 
-		nodes[second_node_of_edge - 1] += 1;
+		nodes[second_node_of_edge] += 1;
 
 		while (iss >> edge_weight) {}
 	}
@@ -81,7 +81,7 @@ void reverse_adj_list(const char *filename, int *nodes, int *adjacency_list) {
 	std::getline(infile, line);
 
 	int idx = 0;
-	int old_second_node_of_edge = -1;
+	int old_second_node_of_edge = 0;
 
 	// qui non ci ero mai arrivato
 	while (std::getline(infile, line)) {

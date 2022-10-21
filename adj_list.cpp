@@ -63,7 +63,7 @@ void adj_list(const char *filename, int *nodes, int *adjacency_list) {
 		iss >> first_node_of_edge;
 		iss >> second_node_of_edge;
 
-		nodes[first_node_of_edge - 1] += 1;
+		nodes[first_node_of_edge] += 1;
 
 		//Debuffing, si legge finché non c'è niente
 		while (iss >> weight) {}
@@ -123,7 +123,7 @@ void adj_list(const char *filename, int *nodes, int *adjacency_list) {
 		iss >> first_node_of_edge;
 		iss >> second_node_of_edge;
 		// È vero che l'ultimo nodo elaborato dal ciclo è uguale a quello corrente?
-		if (old_first_node_of_edge == first_node_of_edge - 1) {
+		if (old_first_node_of_edge == first_node_of_edge) {
 			// Se ci capita qui, vuol dire che si sta lavorando sempre con lo stesso nodo "first_node_of_edge", quindi
 			// di aggiungono in successione i nodi puntati da "first_node_of_edge"
 			adjacency_list[idx++] = second_node_of_edge;
@@ -131,9 +131,9 @@ void adj_list(const char *filename, int *nodes, int *adjacency_list) {
 			// std::cout << "Entering "<< first_node_of_edge <<" to "<< second_node_of_edge << " at "<< idx-1;
 		} else {
 			// idx acquisisce la posizione dalla quale verranno salavati i nodi puntati da first_node_of_edge
-			idx = nodes[first_node_of_edge - 1];
+			idx = nodes[first_node_of_edge];
 			adjacency_list[idx++] = second_node_of_edge;
-			old_first_node_of_edge = first_node_of_edge - 1;
+			old_first_node_of_edge = first_node_of_edge;
 			// std::cout << "Entering " << first_node_of_edge <<" to "<< second_node_of_edge << " at "<< idx-1;
 		}
 
