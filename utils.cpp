@@ -83,7 +83,7 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int main(int argc, char ** argv) {
+int test(int argc, char ** argv) {
 	if (argc != 2) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
 		return -1;
@@ -130,4 +130,6 @@ int main(int argc, char ** argv) {
     for(int i = 0; i < num_edges; i++) {
         DEBUG_MSG_UTILS("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i]);
     }
+
+    return 0;
 }
