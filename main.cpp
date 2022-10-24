@@ -179,10 +179,10 @@ int main(int argc, char ** argv) {
 
     create_graph_from_file(infile, num_nodes, num_edges, nodes, adjacency_list);
 
-	nodes[5] = 9;
-	nodes[7] = 11;
-	nodes[num_nodes] = num_edges;
-	adjacency_list[num_edges] = -1;
+	//nodes[5] = 9;
+	//nodes[7] = 11;
+	//nodes[num_nodes] = num_edges;
+	//adjacency_list[num_edges] = -1;
 
     for(int i = 0; i < num_nodes + 1; i++) {
         DEBUG_MSG_UTILS("nodes[" + to_string(i) + "] = ", nodes[i]);
@@ -193,8 +193,8 @@ int main(int argc, char ** argv) {
 
     create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
-	nodes_transpose[num_nodes] = num_edges;
-	adjacency_list_transpose[num_edges] = -1;
+	//nodes_transpose[num_nodes] = num_edges;
+	//adjacency_list_transpose[num_edges] = -1;
 
 	for(int i = 0; i < num_nodes + 1; i++) {
         DEBUG_MSG_UTILS("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i]);
