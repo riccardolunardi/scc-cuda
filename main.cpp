@@ -134,8 +134,8 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 		DEBUG_MSG_MAIN("Trimming:" , "TESTATO SOLO TRAMITE IN/OUTDEGREE PERCHÈ SERVIREBBERO ANCHE I COLORS E NON LI ABBIAMO ANCORA FATTI");
         trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, colors, is_eliminated);
         break;
+		update(colors, fw_is_visited, bw_is_visited, is_eliminated, stop);
 		pivot_selection(pivots, colors, fw_is_visited, bw_is_visited, is_eliminated);
-        update(colors, fw_is_visited, bw_is_visited, is_eliminated, stop);
     }
 
     for (int i = 0; i < num_nodes; i++){
