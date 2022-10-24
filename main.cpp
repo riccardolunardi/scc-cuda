@@ -9,7 +9,6 @@ using namespace std;
 }
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
-	int read_until = 0;
 	for(int v=0; v < num_nodes; v++) {
 		if(debug_main){
 			DEBUG_MSG_MAIN("Checking " << v, "...");
@@ -20,15 +19,9 @@ void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, i
 		
 		if(!is_eliminated[v] && is_visited[v] && !is_expanded[v]) {
 			is_expanded[v] = true;
+			DEBUG_MSG_MAIN("	u va da " << nodes[v] << " a ", nodes[v+1]);
 
-			if(v < num_nodes - 1){
-				read_until = nodes[v+1];
-			}else{
-				read_until = num_edges;
-			}
-			DEBUG_MSG_MAIN("	u va da " << nodes[v] << " a ", read_until - 1);
-
-			for(int u = nodes[v]; u < read_until; u++) {		
+			for(int u = nodes[v]; u < nodes[v+1]; u++) {		
 				if (debug_main){
 				DEBUG_MSG_MAIN("		Nodo " << v << " connesso a nodo ", adjacency_list[u]);	
 				DEBUG_MSG_MAIN("		is_eliminated[" << adjacency_list[u] << "] -> ", is_eliminated[adjacency_list[u]]);
@@ -62,8 +55,46 @@ void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     }
 }
 
-void trimming(int num_nodes, int num_edges, int * nodes, int * adjacency_list, bool * is_eliminated) {
+void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * colors, bool * is_eliminated, bool &stop){
+	bool elim;
+	for(int v=0; v < num_nodes; v++) {
+		DEBUG_MSG_MAIN("is_eliminated[" << v << "] -> ", is_eliminated[v]);
+		if(!is_eliminated[v]){
+			elim = true;
+			
+			// Nel caso un nodo abbia entrambi in_degree o out_degree diversi da 0 allora non va eliminato
+			if(nodes[v] != nodes[v+1] && nodes_transpose[v] != nodes_transpose[v+1]){
+				DEBUG_MSG_MAIN("is_eliminated[" << v << "] -> in_degree: " << (nodes[v] != nodes[v+1]), "");
+				elim = false;
+			}
+			// Nel caso un arco di v faccia parte dello stesso sottografo, allora non va eliminato
+			// Non serve farlo anche per la lista trasposta perchè alla fine l'if sui colors e sarebbe la stessa cosa
+			DEBUG_MSG_MAIN("	nodo " << v << " e nodo ", v+1);
+			DEBUG_MSG_MAIN("	u va da " << nodes[v] << " a ", nodes[v+1]);
+			for(int u = nodes[v]; u < nodes[v+1]; u++){
+				DEBUG_MSG_MAIN("adjacency_list[" << u << "] -> ", adjacency_list[u]);
+				if(colors[adjacency_list[u]] == colors[v]){
+					elim = false;
+				}
+			}
+			if(elim){
+				is_eliminated[v] = true;
+				DEBUG_MSG_MAIN("is_eliminated[" << v << "] -> ", is_eliminated[v]);
+				stop = false;
+			}
+		}
+	}
+}
 
+void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * colors, bool * is_eliminated) {
+    bool stop = false;
+    while(!stop) {
+        stop = true;
+        trimming_kernel(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, colors, is_eliminated, stop);
+		for (int i = 0; i < num_nodes; i++){
+			DEBUG_MSG_MAIN("is_eliminated[" << i << "] -> ", is_eliminated[i]);
+		}
+    }
 }
 
 void pivot_selection(int * pivots, int * colors, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated) {
@@ -83,24 +114,27 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     int * pivots = new int[num_nodes];
     int * colors = new int[num_nodes];
 
-	for (int i = 0; i < num_nodes; i++){
+	for (int i = 0; i < num_nodes + 1; i++){
 		fw_is_visited[i] = false;
 		bw_is_visited[i] = false;
 		is_eliminated[i] = false;
 		fw_is_expanded[i] = false;
 		bw_is_expanded[i] = false;
-		pivots[i] = 7;
+		pivots[i] = 4;
 		colors[i] = 0;
 	}
 
     bool stop = false;
 
     while (!stop){
+		DEBUG_MSG_MAIN("Forward reach:" , "");
         reach(num_nodes, num_edges, nodes, adjacency_list, pivots, colors, fw_is_visited, is_eliminated, fw_is_expanded);
-		break;
-        reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, colors, bw_is_visited, is_eliminated, bw_is_expanded);
-        trimming(num_nodes, num_edges, nodes, adjacency_list, is_eliminated);
-        pivot_selection(pivots, colors, fw_is_visited, bw_is_visited, is_eliminated);
+        DEBUG_MSG_MAIN("Backward reach:" , "");
+		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, colors, bw_is_visited, is_eliminated, bw_is_expanded);
+		DEBUG_MSG_MAIN("Trimming:" , "TESTATO SOLO TRAMITE IN/OUTDEGREE PERCHÈ SERVIREBBERO ANCHE I COLORS E NON LI ABBIAMO ANCORA FATTI");
+        trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, colors, is_eliminated);
+        break;
+		pivot_selection(pivots, colors, fw_is_visited, bw_is_visited, is_eliminated);
         update(colors, fw_is_visited, bw_is_visited, is_eliminated, stop);
     }
 
@@ -128,10 +162,10 @@ int main(int argc, char ** argv) {
     DEBUG_MSG_UTILS("Number of edges: ", num_edges);
 
 	// Definizione strutture dati principali
-	int *nodes = new int[num_nodes];
-	int *adjacency_list = new int[num_edges];
-	int *nodes_transpose = new int[num_nodes];
-	int *adjacency_list_transpose = new int[num_edges];
+	int *nodes = new int[num_nodes + 1];
+	int *adjacency_list = new int[num_edges + 1];
+	int *nodes_transpose = new int[num_nodes + 1];
+	int *adjacency_list_transpose = new int[num_edges + 1];
 
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
@@ -145,19 +179,27 @@ int main(int argc, char ** argv) {
 
     create_graph_from_file(infile, num_nodes, num_edges, nodes, adjacency_list);
 
-    for(int i = 0; i < num_nodes; i++) {
+	nodes[5] = 9;
+	nodes[7] = 11;
+	nodes[num_nodes] = num_edges;
+	adjacency_list[num_edges] = -1;
+
+    for(int i = 0; i < num_nodes + 1; i++) {
         DEBUG_MSG_UTILS("nodes[" + to_string(i) + "] = ", nodes[i]);
     }
-    for(int i = 0; i < num_edges; i++) {
+    for(int i = 0; i < num_edges + 1; i++) {
         DEBUG_MSG_UTILS("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i]);
     }
 
     create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
-	for(int i = 0; i < num_nodes; i++) {
+	nodes_transpose[num_nodes] = num_edges;
+	adjacency_list_transpose[num_edges] = -1;
+
+	for(int i = 0; i < num_nodes + 1; i++) {
         DEBUG_MSG_UTILS("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i]);
     }
-    for(int i = 0; i < num_edges; i++) {
+    for(int i = 0; i < num_edges + 1; i++) {
         DEBUG_MSG_UTILS("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i]);
     }
 
