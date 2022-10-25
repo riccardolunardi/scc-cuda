@@ -148,60 +148,22 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 }
 
 int main(int argc, char ** argv) {
-	if (argc != 2) {
+    if (argc != 2) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
 		return -1;
 	}
 	const char *filename = argv[1];
     ifstream infile(filename);
 	int num_nodes, num_edges;
+    int * nodes;
+	int * adjacency_list;
+	int * nodes_transpose;
+	int * adjacency_list_transpose;
 
-    read_heading_numbers(infile, num_nodes, num_edges);
+    create_graph_from_filename(filename, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
-    DEBUG_MSG_UTILS("Number of nodes: ", num_nodes);
-    DEBUG_MSG_UTILS("Number of edges: ", num_edges);
 
-	// Definizione strutture dati principali
-	int *nodes = new int[num_nodes + 1];
-	int *adjacency_list = new int[num_edges + 1];
-	int *nodes_transpose = new int[num_nodes + 1];
-	int *adjacency_list_transpose = new int[num_edges + 1];
 
-    // Inizializzazione delle liste 
-	for (int i = 0; i < num_nodes; i++){
-		nodes[i] = 0;
-		nodes_transpose[i] = 0;
-	}
-	for (int i = 0; i < num_edges; i++){
-		adjacency_list[i] = 0;
-		adjacency_list_transpose[i] = -1;
-	}
-
-    create_graph_from_file(infile, num_nodes, num_edges, nodes, adjacency_list);
-
-	//nodes[5] = 9;
-	//nodes[7] = 11;
-	//nodes[num_nodes] = num_edges;
-	//adjacency_list[num_edges] = -1;
-
-    for(int i = 0; i < num_nodes + 1; i++) {
-        DEBUG_MSG_UTILS("nodes[" + to_string(i) + "] = ", nodes[i]);
-    }
-    for(int i = 0; i < num_edges + 1; i++) {
-        DEBUG_MSG_UTILS("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i]);
-    }
-
-    create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
-
-	//nodes_transpose[num_nodes] = num_edges;
-	//adjacency_list_transpose[num_edges] = -1;
-
-	for(int i = 0; i < num_nodes + 1; i++) {
-        DEBUG_MSG_UTILS("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i]);
-    }
-    for(int i = 0; i < num_edges + 1; i++) {
-        DEBUG_MSG_UTILS("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i]);
-    }
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 }
