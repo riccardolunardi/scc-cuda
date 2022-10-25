@@ -4,9 +4,9 @@
 #include <iostream>
 using namespace std;
 
-#define DEBUG_UTILS false
-#define DEBUG_MSG_UTILS(str, val){                     	\
-    if(DEBUG_UTILS)                            		    \
+#define DEBUG_CREATE false
+#define DEBUG_MSG(str, val, print_bool){                \
+    if(print_bool)                            		    \
         std::cout << str << val << std::endl;         	\
 }
 
@@ -112,8 +112,8 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 
     read_heading_numbers(infile, num_nodes, num_edges);
 
-    DEBUG_MSG_UTILS("Number of nodes: ", num_nodes);
-    DEBUG_MSG_UTILS("Number of edges: ", num_edges);
+    DEBUG_MSG("Number of nodes: ", num_nodes, DEBUG_CREATE);
+    DEBUG_MSG("Number of edges: ", num_edges, DEBUG_CREATE);
 
 	// Definizione strutture dati principali
 	nodes = new int[num_nodes];
@@ -134,19 +134,19 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
     create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list);
 
     for(int i = 0; i < num_nodes; i++) {
-        DEBUG_MSG_UTILS("nodes[" + to_string(i) + "] = ", nodes[i]);
+        DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_CREATE);
     }
     for(int i = 0; i < num_edges; i++) {
-        DEBUG_MSG_UTILS("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i]);
+        DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_CREATE);
     }
 
     create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
     for(int i = 0; i < num_nodes; i++) {
-        DEBUG_MSG_UTILS("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i]);
+        DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_CREATE);
     }
     for(int i = 0; i < num_edges; i++) {
-        DEBUG_MSG_UTILS("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i]);
+        DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_CREATE);
     }
 
     return 0;
