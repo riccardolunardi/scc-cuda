@@ -1,8 +1,7 @@
 #include "utils.cpp"
-
-#define debug_main true
 using namespace std;
 
+#define debug_main false
 #define DEBUG_MSG_MAIN(str, value){                     \
     if(debug_main)                                      \
         std::cout << str << value << std::endl;         \
@@ -152,8 +151,8 @@ int main(int argc, char ** argv) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
 		return -1;
 	}
+
 	const char *filename = argv[1];
-    ifstream infile(filename);
 	int num_nodes, num_edges;
     int * nodes;
 	int * adjacency_list;
@@ -162,8 +161,5 @@ int main(int argc, char ** argv) {
 
     create_graph_from_filename(filename, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
-
-
-
-	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
+	// fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 }

@@ -2,10 +2,9 @@
 #include <fstream>
 #include <string>
 #include <iostream>
-
 using namespace std;
 
-#define DEBUG_UTILS true
+#define DEBUG_UTILS false
 #define DEBUG_MSG_UTILS(str, val){                     	\
     if(DEBUG_UTILS)                            		    \
         std::cout << str << val << std::endl;         	\
@@ -21,31 +20,56 @@ void read_heading_numbers(ifstream & infile, int & num_nodes, int & num_edges) {
 	iss >> percentage_sign;
 	iss >> num_edges;
 	iss >> num_nodes;
+
+    // aggiungo il nodo dummy
+    ++num_nodes;
 }
 
-void create_graph_from_file(ifstream & infile, int num_nodes, int num_edges, int * nodes, int * adjacency_list) {
+void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int * nodes, int * adjacency_list) {
     int u, v, weight;
     string line;
 
-    int i = 0;
-    int j = -1;
+    int iterator_adjacency_list = 0;
 
-    int old_u = 0;
-    while (std::getline(infile, line)) {
+    // immagino un arco (u,v)
+    // faccio la prima iterazione fuori dal while per settare il valore old_u = al primo u
+    getline(infile, line);
+    istringstream iss(line);
+    iss >> u;
+    int old_u = u;
+	iss >> v;
+
+    // debuffing, si legge finché non c'è niente
+    while (iss >> weight) {}
+
+    // dato l'arco (u,v)
+    // setto il puntatore del nodo u = al posto giusto nella lista delle adiacenze
+    nodes[u] = iterator_adjacency_list;
+    // nella lista delle adiacenze metto v
+    adjacency_list[iterator_adjacency_list] = v;
+
+    // leggo finchè ci sono righe
+    while (getline(infile, line)) {
         // Immagino un arco (u,v)
 	    istringstream iss(line);
         iss >> u;
 		iss >> v;
-		//Debuffing, si legge finché non c'è niente
+		// Debuffing, si legge finché non c'è niente
 		while (iss >> weight) {}
 
-        adjacency_list[++j] = v;
+        adjacency_list[++iterator_adjacency_list] = v;
 
-        // se il nodo u è diverso dal precedente, allora aggiorna il puntatore alla lista delle adiacenze
+        // se il nodo u è diverso dal precedente, setto tutti i valori di nodes da [old_u + 1] a [u] compreso con il valore dell'iteratore della lista d'adiacenza
         if(old_u != u) {
-            nodes[u] = j;
-            old_u = u;
+            while(old_u < u) {
+                nodes[++old_u] = iterator_adjacency_list;
+            }
         }
+    }
+
+    // faccio puntare tutti gli ultimi nodi senza archi e il nodo dummy, ad una posizione dummy della lista d'adiacenza
+    while(u < num_nodes) {
+        nodes[++u] = num_edges;
     }
 }
 
@@ -83,14 +107,8 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int test(int argc, char ** argv) {
-	if (argc != 2) {
-		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
-		return -1;
-	}
-	const char *filename = argv[1];
+int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
     ifstream infile(filename);
-	int num_nodes, num_edges;
 
     read_heading_numbers(infile, num_nodes, num_edges);
 
@@ -98,10 +116,10 @@ int test(int argc, char ** argv) {
     DEBUG_MSG_UTILS("Number of edges: ", num_edges);
 
 	// Definizione strutture dati principali
-	int *nodes = new int[num_nodes];
-	int *adjacency_list = new int[num_edges];
-	int *nodes_transpose = new int[num_nodes];
-	int *adjacency_list_transpose = new int[num_edges];
+	nodes = new int[num_nodes];
+	adjacency_list = new int[num_edges];
+	nodes_transpose = new int[num_nodes];
+	adjacency_list_transpose = new int[num_edges];
 
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
@@ -113,7 +131,7 @@ int test(int argc, char ** argv) {
 		adjacency_list_transpose[i] = -1;
 	}
 
-    create_graph_from_file(infile, num_nodes, num_edges, nodes, adjacency_list);
+    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list);
 
     for(int i = 0; i < num_nodes; i++) {
         DEBUG_MSG_UTILS("nodes[" + to_string(i) + "] = ", nodes[i]);
