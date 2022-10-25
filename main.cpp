@@ -3,30 +3,41 @@ using namespace std;
 
 #define DEBUG_F_KERNEL false
 #define DEBUG_REACH false
-#define DEBUG_TRIMMING_KERNEL false
+#define DEBUG_TRIMMING_KERNEL true
 #define DEBUG_TRIMMING false
-#define DEBUG_FW_BW false
+#define DEBUG_FW_BW true
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
+    for (int i = 0; i < num_nodes; i++){
+        DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_F_KERNEL);
+    }
+
+    // per ogni nodo
 	for(int v=0; v < num_nodes; v++) {
         DEBUG_MSG("Checking " << v, "...", DEBUG_F_KERNEL);
         DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_F_KERNEL);
         DEBUG_MSG("is_visited[" << v << "] -> ", is_visited[v], DEBUG_F_KERNEL);
         DEBUG_MSG("is_expanded["<< v <<"] -> ", is_expanded[v], DEBUG_F_KERNEL);	
 		
+        // si controlla se non è stato eliminato E è stato eliminato E non è stato espanso
 		if(!is_eliminated[v] && is_visited[v] && !is_expanded[v]) {
+            // si segna come espanso
 			is_expanded[v] = true;
 			DEBUG_MSG("	u va da " << nodes[v] << " a ", nodes[v+1], DEBUG_F_KERNEL);
 
+            // per ogni nodo a cui punta
 			for(int u = nodes[v]; u < nodes[v+1]; u++) {		
 				DEBUG_MSG("		Nodo " << v << " connesso a nodo ", adjacency_list[u], DEBUG_F_KERNEL);	
 				DEBUG_MSG("		is_eliminated[" << adjacency_list[u] << "] -> ", is_eliminated[adjacency_list[u]], DEBUG_F_KERNEL);
 				DEBUG_MSG("		is_visited[" << adjacency_list[u] << "] -> ", is_visited[adjacency_list[u]], DEBUG_F_KERNEL);
 				DEBUG_MSG("		colors["<<v<<"] == colors["<<adjacency_list[u]<<"] -> " << colors[v] << " == ", colors[adjacency_list[u]], DEBUG_F_KERNEL);
 
+                // si controlla se non è stato eliminato E se non è stato visitato E se il colore del nodo che punta corrisponde a quello del nodo puntato
 				if(!is_eliminated[adjacency_list[u]] && !is_visited[adjacency_list[u]] && colors[v] == colors[adjacency_list[u]]) {
 					DEBUG_MSG("			is_visited[" << adjacency_list[u] << "] -> ", "TRUE", DEBUG_F_KERNEL);
+                    // setta il nodo puntato a visitato
 					is_visited[adjacency_list[u]] = true;
+                    // permette di continuare il ciclo in reach, perchè si è trovato un altro nodo da visitare
 					stop = false;
 				}
 			}
@@ -62,16 +73,23 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
 			if(nodes[v] != nodes[v+1] && nodes_transpose[v] != nodes_transpose[v+1]){
 				elim = false;
 			}
+
+            // ---- PENSO CHE QUESTO NON SIA CORRETTO (INIZIO DABRO) ----
+
 			// Nel caso un arco di v faccia parte dello stesso sottografo, allora non va eliminato
 			// Non serve farlo anche per la lista trasposta perchè alla fine l'if sui colors e sarebbe la stessa cosa
-			DEBUG_MSG("	nodo " << v << " e nodo ", v+1, DEBUG_TRIMMING_KERNEL);
-			DEBUG_MSG("	u va da " << nodes[v] << " a ", nodes[v+1], DEBUG_TRIMMING_KERNEL);
-			for(int u = nodes[v]; u < nodes[v+1]; u++){
-				DEBUG_MSG("adjacency_list[" << u << "] -> ", adjacency_list[u], DEBUG_TRIMMING_KERNEL);
-				if(colors[adjacency_list[u]] == colors[v]){
-					elim = false;
-				}
-			}
+			// DEBUG_MSG("	nodo " << v << " e nodo ", v+1, DEBUG_TRIMMING_KERNEL);
+			// DEBUG_MSG("	u va da " << nodes[v] << " a ", nodes[v+1], DEBUG_TRIMMING_KERNEL);
+			// for(int u = nodes[v]; u < nodes[v+1]; u++){
+			// 	DEBUG_MSG("adjacency_list[" << u << "] -> ", adjacency_list[u], DEBUG_TRIMMING_KERNEL);
+			// 	if(colors[adjacency_list[u]] == colors[v]){
+			// 		elim = false;
+			// 	}
+			// }
+
+            // ---- PENSO CHE QUESTO NON SIA CORRETTO (FINE DABRO) ----
+            // se lo è ti prego dimmi perchè dato che non ci ho capito un cazzo
+
 			if(elim){
 				is_eliminated[v] = true;
 				DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
@@ -127,19 +145,31 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
 		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, colors, bw_is_visited, is_eliminated, bw_is_expanded);
 		DEBUG_MSG("Trimming:" , "TESTATO SOLO TRAMITE IN/OUTDEGREE PERCHÈ SERVIREBBERO ANCHE I COLORS E NON LI ABBIAMO ANCORA FATTI", DEBUG_FW_BW);
+        // penso che trimming non funzioni
+        // se provi a compilare con samples/sample_graph6 vedi che non elimina il nodo 0 nonostante abbia in-degree = 0
         trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, colors, is_eliminated);
         break;
-		pivot_selection(pivots, colors, fw_is_visited, bw_is_visited, is_eliminated);
-        update(colors, fw_is_visited, bw_is_visited, is_eliminated, stop);
+		// pivot_selection(pivots, colors, fw_is_visited, bw_is_visited, is_eliminated);
+        // update(colors, fw_is_visited, bw_is_visited, is_eliminated, stop);
     }
 
+    // ---- INIZIO DEBUG ----
     for (int i = 0; i < num_nodes; i++){
-        DEBUG_MSG("nodes[" + to_string(i) + "] = ", fw_is_visited[i], DEBUG_FW_BW);
-        DEBUG_MSG("nodes[" + to_string(i) + "] = ", bw_is_visited[i], DEBUG_FW_BW);
-        DEBUG_MSG("nodes[" + to_string(i) + "] = ", is_eliminated[i], DEBUG_FW_BW);
-        DEBUG_MSG("nodes[" + to_string(i) + "] = ", pivots[i], DEBUG_FW_BW);
-        DEBUG_MSG("nodes[" + to_string(i) + "] = ", colors[i], DEBUG_FW_BW);
-	}
+        DEBUG_MSG("fw_is_visited[" + to_string(i) + "] = ", fw_is_visited[i], DEBUG_FW_BW);
+    }
+    for (int i = 0; i < num_nodes; i++){
+        DEBUG_MSG("bw_is_visited[" + to_string(i) + "] = ", bw_is_visited[i], DEBUG_FW_BW);
+    }
+    for (int i = 0; i < num_nodes; i++){
+        DEBUG_MSG("is_eliminated[" + to_string(i) + "] = ", is_eliminated[i], DEBUG_FW_BW);
+    }
+    for (int i = 0; i < num_nodes; i++){
+        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_FW_BW);
+    }
+    for (int i = 0; i < num_nodes; i++){
+        DEBUG_MSG("colors[" + to_string(i) + "] = ", colors[i], DEBUG_FW_BW);
+    }
+    // ---- FINE DEBUG ----
 }
 
 int main(int argc, char ** argv) {
@@ -148,14 +178,16 @@ int main(int argc, char ** argv) {
 		return -1;
 	}
 
-	const char *filename = argv[1];
 	int num_nodes, num_edges;
-    int * nodes;
-	int * adjacency_list;
-	int * nodes_transpose;
-	int * adjacency_list_transpose;
+    ifstream infile(argv[1]);
+    read_heading_numbers(infile, num_nodes, num_edges);
 
-    create_graph_from_filename(filename, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
+    int * nodes = new int[num_nodes];
+	int * adjacency_list = new int[num_edges];
+	int * nodes_transpose = new int[num_nodes];
+	int * adjacency_list_transpose = new int[num_edges];
+
+    create_graph_from_filename(infile, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 }

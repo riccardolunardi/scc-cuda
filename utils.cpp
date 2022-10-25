@@ -111,20 +111,7 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
-    ifstream infile(filename);
-
-    read_heading_numbers(infile, num_nodes, num_edges);
-
-    DEBUG_MSG("Number of nodes: ", num_nodes, DEBUG_CREATE);
-    DEBUG_MSG("Number of edges: ", num_edges, DEBUG_CREATE);
-
-	// Definizione strutture dati principali
-	nodes = new int[num_nodes];
-	adjacency_list = new int[num_edges];
-	nodes_transpose = new int[num_nodes];
-	adjacency_list_transpose = new int[num_edges];
-
+int create_graph_from_filename(ifstream & infile, int & num_nodes, int & num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
 		nodes[i] = 0;
@@ -137,14 +124,20 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 
     create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list);
 
+    create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
+
+    // si vuole eliminare dalla vista il nodo dummy, tenendo in considerazione che logicamente è presente
+    --num_nodes;
+
+    DEBUG_MSG("Number of nodes: ", num_nodes, DEBUG_CREATE);
+    DEBUG_MSG("Number of edges: ", num_edges, DEBUG_CREATE);
+
     for(int i = 0; i < num_nodes; i++) {
         DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_CREATE);
     }
     for(int i = 0; i < num_edges; i++) {
         DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_CREATE);
     }
-
-    create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
     for(int i = 0; i < num_nodes; i++) {
         DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_CREATE);
