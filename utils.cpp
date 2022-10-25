@@ -4,7 +4,7 @@
 #include <iostream>
 using namespace std;
 
-#define DEBUG_CREATE false
+#define DEBUG_CREATE true
 #define DEBUG_MSG(str, val, print_bool){                \
     if(print_bool)                            		    \
         std::cout << str << val << std::endl;         	\
@@ -80,30 +80,34 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 
     int max = 0;
-    // non so come cazzo spiegarlo, ma parto dal secondo e lo incremento col precedente, così facendo l'ultimo si incrementa col penultimo, che si è incrementato col second'ultimo e così via
+    // faccio la somma di tutti i valori contenuti in nodes
     for(int i=0; i < num_nodes; i++) {
         max += nodes_transpose[i];
     }
+    // Parto dall'ultimo nodo e computo la posizione inizale nella lista di adiacenza, procedo a ritroso nel vettore
     for(int i=num_nodes-1; i > -1; i--) {
         max -= nodes_transpose[i];
         nodes_transpose[i] = max;
     }
 
-    int j=0;
-    int x;
+    int pointed_node = 0;
+    int first_position_available;
 
-    // ora so i valori della lista nodes, ed avendo inizializzato la lista con un valore impossibile (-1) è possibile ricostruire la adjacency_list_transpose
-    for(int i=0; i < num_edges; i++) {
-        while(nodes[j+1] <= i && j < num_nodes - 1) {
-            ++j;
+    // ora so i valori della lista nodes_transpose, ed avendo inizializzato la adjacency_list_transpose con un valore impossibile (-1) è possibile ricostruirla
+    for(int index_adjacency_list = 0; index_adjacency_list < num_edges; ++index_adjacency_list) {
+        // cerco i nodi che vengono puntati da altri nodi, quando esce dal ciclo pointed_node avrà il valore di un nodo puntato dal nodo nodes[pointed_node]
+        while(nodes[pointed_node+1] <= index_adjacency_list && pointed_node < num_nodes - 1) {
+            ++pointed_node;
         }
 
-        x = 0;
-        while(adjacency_list_transpose[nodes_transpose[adjacency_list[i]] + x] != -1) {
-            ++x;
+        // trovo il primo posto disponibile nella corretta posizione della adjacency_list_transpose
+        first_position_available = 0;
+        while(adjacency_list_transpose[nodes_transpose[adjacency_list[index_adjacency_list]] + first_position_available] != -1) {
+            ++first_position_available;
         }
 
-        adjacency_list_transpose[nodes_transpose[adjacency_list[i]] + x] = j;
+        // metto nella prima posizione libera, del corretto nodo, della adjacency_list_transpose il nodo puntato nel grafo trasposto
+        adjacency_list_transpose[nodes_transpose[adjacency_list[index_adjacency_list]] + first_position_available] = pointed_node;
     }
 }
 
