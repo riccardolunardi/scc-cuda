@@ -65,7 +65,7 @@ void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * colors, bool * is_eliminated, bool &stop){
 	bool elim;
 	for(int v=0; v < num_nodes; v++) {
-		DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
+		// DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
 		if(!is_eliminated[v]){
 			elim = true;
 			
@@ -78,21 +78,23 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
 
 			// Nel caso un arco di v faccia parte dello stesso sottografo, allora non va eliminato
 			// Non serve farlo anche per la lista trasposta perchè alla fine l'if sui colors e sarebbe la stessa cosa
-			// DEBUG_MSG("	nodo " << v << " e nodo ", v+1, DEBUG_TRIMMING_KERNEL);
-			// DEBUG_MSG("	u va da " << nodes[v] << " a ", nodes[v+1], DEBUG_TRIMMING_KERNEL);
-			// for(int u = nodes[v]; u < nodes[v+1]; u++){
-			// 	DEBUG_MSG("adjacency_list[" << u << "] -> ", adjacency_list[u], DEBUG_TRIMMING_KERNEL);
-			// 	if(colors[adjacency_list[u]] == colors[v]){
-			// 		elim = false;
-			// 	}
-			// }
+			DEBUG_MSG("	nodo " << v << " e nodo ", v+1, DEBUG_TRIMMING_KERNEL);
+			DEBUG_MSG("	u va da " << nodes[v] << " a ", nodes[v+1], DEBUG_TRIMMING_KERNEL);
+			for(int u = nodes[v]; u < nodes[v+1]; u++){
+			 	DEBUG_MSG("adjacency_list[" << u << "] -> ", adjacency_list[u], DEBUG_TRIMMING_KERNEL);
+			 	// elim potrebbe ovviamente essere messo prima del for, per evitare cicli in più
+				// forse va mosso, in base a come capiremo ottimizzare in CUDA
+				if(colors[adjacency_list[u]] == colors[v] && !elim){
+			 		elim = false;
+				}	
+			}
 
             // ---- PENSO CHE QUESTO NON SIA CORRETTO (FINE DABRO) ----
             // se lo è ti prego dimmi perchè dato che non ci ho capito un cazzo
 
 			if(elim){
 				is_eliminated[v] = true;
-				DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
+				// DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
 				stop = false;
 			}
 		}
