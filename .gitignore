@@ -12,3 +12,6 @@
 !.vscode/*.code-snippets
 
 build
+main.out
+.DS_Store
+paper/*
