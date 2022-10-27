@@ -6,6 +6,7 @@ using namespace std;
 #define DEBUG_TRIMMING_KERNEL true
 #define DEBUG_TRIMMING false
 #define DEBUG_FW_BW true
+#define DEBUG_UPDATE true
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
     for (int i = 0; i < num_nodes; i++){
@@ -85,6 +86,7 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
 			 	// elim potrebbe ovviamente essere messo prima del for, per evitare cicli in più
 				// forse va mosso, in base a come capiremo ottimizzare in CUDA
 				if(colors[adjacency_list[u]] == colors[v] && !elim){
+					DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
 			 		elim = false;
 				}	
 			}
@@ -94,7 +96,7 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
 
 			if(elim){
 				is_eliminated[v] = true;
-				// DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
+				DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
 				stop = false;
 			}
 		}
@@ -116,8 +118,36 @@ void pivot_selection(int * pivots, int * colors, bool * fw_is_visited, bool * bw
 
 }
 
-void update(int * colors, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
-
+void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
+	/*
+	Dai paper:
+	These subgraphs are 
+	1) the strongly connected component with the pivot;
+	2) the subgraph given by vertices in the forward closure but not in the backward closure; 
+	3) the subgraph given by vertices in the backward closure but not in the forward closure;
+	4) the subgraph given by vertices that are neither in the forward nor in the backward closure.
+	
+	The subgraphs that do not contain the pivot form three independent instances of the same problem, and therefore, 
+	they are recursively processed in parallel with the same algorithm
+	*/
+	stop = true;
+	for(int v=0; v < num_nodes; v++) {
+		// Questo primo caso non ha senso di esistere, perché possiamo lasciargli il valore precedente, tanto cambiaeranno tutti gli altri
+		//if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == true){
+		//	colors[v] = 4 * pivots[v];
+		if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == true){
+			colors[v] = 3 * pivots[v];
+		}else if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == false){
+			colors[v] = 3 * pivots[v] + 1;
+		}else if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == false){
+			colors[v] = 3 * pivots[v] + 2;
+			
+			if(!is_eliminated[v]){
+				stop = false;
+				DEBUG_MSG(v, " -> non eliminato, ma non visitato da fw e bw", DEBUG_UPDATE);
+			}
+		}
+	}
 }
 
 void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
@@ -135,7 +165,7 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 		is_eliminated[i] = false;
 		fw_is_expanded[i] = false;
 		bw_is_expanded[i] = false;
-		pivots[i] = 4;
+		pivots[i] = 2;
 		colors[i] = 0;
 	}
 
@@ -150,7 +180,8 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
         // penso che trimming non funzioni
         // se provi a compilare con samples/sample_graph6 vedi che non elimina il nodo 0 nonostante abbia in-degree = 0
         trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, colors, is_eliminated);
-        break;
+		update(num_nodes, colors, pivots, fw_is_visited, bw_is_visited, is_eliminated, stop);
+		//break;
 		// pivot_selection(pivots, colors, fw_is_visited, bw_is_visited, is_eliminated);
         // update(colors, fw_is_visited, bw_is_visited, is_eliminated, stop);
     }
