@@ -1,3 +1,5 @@
+help:
+	@make -qpRr | egrep -v "^Makefile:" | egrep -e '^[^\.\#].*:$$' | sed -e 's~:~~g' | sort
 compile:
 	@ g++ -o main.out main.cpp
 run:

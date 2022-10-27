@@ -4,7 +4,7 @@
 #include <iostream>
 using namespace std;
 
-#define DEBUG_CREATE true
+#define DEBUG_CREATE false
 #define DEBUG_MSG(str, val, print_bool){                \
     if(print_bool)                            		    \
         std::cout << str << val << std::endl;         	\
@@ -25,7 +25,7 @@ void read_heading_numbers(ifstream & infile, int & num_nodes, int & num_edges) {
     ++num_nodes;
 }
 
-void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int * nodes, int * adjacency_list) {
+void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list) {
     int u, v, weight;
     string line;
 
@@ -73,7 +73,7 @@ void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int n
     }
 }
 
-void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
+void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose) {
     // scorro la lista delle adiacenze e ogni volta che trovo un nodo incremento il suo contatore
     for(int i=0; i < num_edges; i++) {
         ++ nodes_transpose[adjacency_list[i]];
@@ -111,7 +111,17 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int create_graph_from_filename(ifstream & infile, int & num_nodes, int & num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
+int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose) {
+    ifstream infile(filename);
+
+    read_heading_numbers(infile, num_nodes, num_edges);
+
+	// Definizione strutture dati principali
+	nodes = new int[num_nodes];
+	adjacency_list = new int[num_edges];
+	nodes_transpose = new int[num_nodes];
+	adjacency_list_transpose = new int[num_edges];
+
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
 		nodes[i] = 0;
@@ -132,19 +142,14 @@ int create_graph_from_filename(ifstream & infile, int & num_nodes, int & num_edg
     DEBUG_MSG("Number of nodes: ", num_nodes, DEBUG_CREATE);
     DEBUG_MSG("Number of edges: ", num_edges, DEBUG_CREATE);
 
-    for(int i = 0; i < num_nodes; i++) {
+    for(int i = 0; i < num_nodes; i++)
         DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_CREATE);
-    }
-    for(int i = 0; i < num_edges; i++) {
+    for(int i = 0; i < num_edges; i++)
         DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_CREATE);
-    }
-
-    for(int i = 0; i < num_nodes; i++) {
+    for(int i = 0; i < num_nodes; i++)
         DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_CREATE);
-    }
-    for(int i = 0; i < num_edges; i++) {
+    for(int i = 0; i < num_edges; i++)
         DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_CREATE);
-    }
 
     return 0;
 }

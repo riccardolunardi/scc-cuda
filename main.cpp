@@ -3,10 +3,11 @@ using namespace std;
 
 #define DEBUG_F_KERNEL false
 #define DEBUG_REACH false
-#define DEBUG_TRIMMING_KERNEL true
+#define DEBUG_TRIMMING_KERNEL false
 #define DEBUG_TRIMMING false
-#define DEBUG_FW_BW true
 #define DEBUG_UPDATE true
+#define DEBUG_FW_BW false
+#define DEBUG_MAIN true
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
     for (int i = 0; i < num_nodes; i++){
@@ -119,6 +120,10 @@ void pivot_selection(int * pivots, int * colors, bool * fw_is_visited, bool * bw
 }
 
 void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
+    int * write_id_for_pivots = new int[4 * num_nodes];
+	for (int i = 0; i < 5 * num_nodes; i++){
+		write_id_for_pivots[i] = -1;
+	}
 	/*
 	Dai paper:
 	These subgraphs are 
@@ -133,21 +138,36 @@ void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, boo
 	stop = true;
 	for(int v=0; v < num_nodes; v++) {
 		// Questo primo caso non ha senso di esistere, perché possiamo lasciargli il valore precedente, tanto cambiaeranno tutti gli altri
-		//if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == true){
-		//	colors[v] = 4 * pivots[v];
-		if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == true){
-			colors[v] = 3 * pivots[v];
+		// in realtà ha senso per conservare il valore del pivot, se poi si scopre che una volta diventato SCC il suo valore nel vettore pivots, allora il primo caso si può cancellare e moltiplicare per 3
+		if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == true){
+			colors[v] = 4 * pivots[v];
+		} else if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == true){
+			colors[v] = 4 * pivots[v] + 1;
 		}else if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == false){
-			colors[v] = 3 * pivots[v] + 1;
+			colors[v] = 4 * pivots[v] + 2;
 		}else if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == false){
-			colors[v] = 3 * pivots[v] + 2;
+			colors[v] = 4 * pivots[v] + 3;
 			
 			if(!is_eliminated[v]){
 				stop = false;
 				DEBUG_MSG(v, " -> non eliminato, ma non visitato da fw e bw", DEBUG_UPDATE);
 			}
 		}
+		write_id_for_pivots[colors[v]] = v;
 	}
+
+	for (int i = 0; i < 4 * num_nodes; i++)
+        DEBUG_MSG("write_id_for_pivots[" + to_string(i) + "] = ", write_id_for_pivots[i], DEBUG_UPDATE);
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("colors[" + to_string(i) + "] = ", colors[i], DEBUG_UPDATE);
+	// setto i valori dei pivot che hanno vinto la race
+	// in CUDA questo è da fare dopo una sincronizzazione
+	for (int i = 0; i < num_nodes; i++) {
+		pivots[i] = write_id_for_pivots[colors[i]];
+	}
+
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_UPDATE);
 }
 
 void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
@@ -174,34 +194,28 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     while (!stop){
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
         reach(num_nodes, num_edges, nodes, adjacency_list, pivots, colors, fw_is_visited, is_eliminated, fw_is_expanded);
+
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
 		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, colors, bw_is_visited, is_eliminated, bw_is_expanded);
+
 		DEBUG_MSG("Trimming:" , "TESTATO SOLO TRAMITE IN/OUTDEGREE PERCHÈ SERVIREBBERO ANCHE I COLORS E NON LI ABBIAMO ANCORA FATTI", DEBUG_FW_BW);
-        // penso che trimming non funzioni
-        // se provi a compilare con samples/sample_graph6 vedi che non elimina il nodo 0 nonostante abbia in-degree = 0
         trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, colors, is_eliminated);
+
+		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update(num_nodes, colors, pivots, fw_is_visited, bw_is_visited, is_eliminated, stop);
-		//break;
-		// pivot_selection(pivots, colors, fw_is_visited, bw_is_visited, is_eliminated);
-        // update(colors, fw_is_visited, bw_is_visited, is_eliminated, stop);
     }
 
     // ---- INIZIO DEBUG ----
-    for (int i = 0; i < num_nodes; i++){
+    for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("fw_is_visited[" + to_string(i) + "] = ", fw_is_visited[i], DEBUG_FW_BW);
-    }
-    for (int i = 0; i < num_nodes; i++){
+    for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("bw_is_visited[" + to_string(i) + "] = ", bw_is_visited[i], DEBUG_FW_BW);
-    }
-    for (int i = 0; i < num_nodes; i++){
+    for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("is_eliminated[" + to_string(i) + "] = ", is_eliminated[i], DEBUG_FW_BW);
-    }
-    for (int i = 0; i < num_nodes; i++){
+    for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_FW_BW);
-    }
-    for (int i = 0; i < num_nodes; i++){
+    for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("colors[" + to_string(i) + "] = ", colors[i], DEBUG_FW_BW);
-    }
     // ---- FINE DEBUG ----
 }
 
@@ -212,15 +226,17 @@ int main(int argc, char ** argv) {
 	}
 
 	int num_nodes, num_edges;
-    ifstream infile(argv[1]);
-    read_heading_numbers(infile, num_nodes, num_edges);
+    int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose;
+    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
-    int * nodes = new int[num_nodes];
-	int * adjacency_list = new int[num_edges];
-	int * nodes_transpose = new int[num_nodes];
-	int * adjacency_list_transpose = new int[num_edges];
-
-    create_graph_from_filename(infile, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
+	for (int i = 0; i < num_edges; i++)
+        DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_MAIN);
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_MAIN);
+	for (int i = 0; i < num_edges; i++)
+        DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 }
