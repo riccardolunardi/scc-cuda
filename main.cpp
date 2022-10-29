@@ -6,7 +6,7 @@ using namespace std;
 #define DEBUG_TRIMMING_KERNEL false
 #define DEBUG_TRIMMING false
 #define DEBUG_UPDATE true
-#define DEBUG_FW_BW false
+#define DEBUG_FW_BW true
 #define DEBUG_MAIN true
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
@@ -115,10 +115,6 @@ void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, 
     }
 }
 
-void pivot_selection(int * pivots, int * colors, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated) {
-
-}
-
 void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
     int * write_id_for_pivots = new int[4 * num_nodes];
 	for (int i = 0; i < 5 * num_nodes; i++){
@@ -139,15 +135,22 @@ void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, boo
 	for(int v=0; v < num_nodes; v++) {
 		// Questo primo caso non ha senso di esistere, perché possiamo lasciargli il valore precedente, tanto cambiaeranno tutti gli altri
 		// in realtà ha senso per conservare il valore del pivot, se poi si scopre che una volta diventato SCC il suo valore nel vettore pivots, allora il primo caso si può cancellare e moltiplicare per 3
+		
+		if(is_eliminated[v]){
+			pivots[v] = v;
+		} 
+		
 		if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == true){
 			colors[v] = 4 * pivots[v];
-		} else if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == true){
-			colors[v] = 4 * pivots[v] + 1;
-		}else if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == false){
-			colors[v] = 4 * pivots[v] + 2;
-		}else if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == false){
-			colors[v] = 4 * pivots[v] + 3;
-			
+		} else {
+			if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == true){
+				colors[v] = 4 * pivots[v] + 1;
+			}else if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == false){
+				colors[v] = 4 * pivots[v] + 2;
+			}else if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == false){
+				colors[v] = 4 * pivots[v] + 3;				
+			}
+				
 			if(!is_eliminated[v]){
 				stop = false;
 				DEBUG_MSG(v, " -> non eliminato, ma non visitato da fw e bw", DEBUG_UPDATE);
@@ -163,7 +166,11 @@ void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, boo
 	// setto i valori dei pivot che hanno vinto la race
 	// in CUDA questo è da fare dopo una sincronizzazione
 	for (int i = 0; i < num_nodes; i++) {
-		pivots[i] = write_id_for_pivots[colors[i]];
+		if(is_eliminated[i]){
+			pivots[i] = i;
+		}else{
+			pivots[i] = write_id_for_pivots[colors[i]];
+		}
 	}
 
 	for (int i = 0; i < num_nodes; i++)
