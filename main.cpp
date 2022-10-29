@@ -6,10 +6,10 @@ using namespace std;
 #define DEBUG_TRIMMING_KERNEL false
 #define DEBUG_TRIMMING false
 #define DEBUG_UPDATE true
-#define DEBUG_FW_BW true
+#define DEBUG_FW_BW false
 #define DEBUG_MAIN true
 
-void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
+void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
     for (int i = 0; i < num_nodes; i++){
         DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_F_KERNEL);
     }
@@ -32,10 +32,10 @@ void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, i
 				DEBUG_MSG("		Nodo " << v << " connesso a nodo ", adjacency_list[u], DEBUG_F_KERNEL);	
 				DEBUG_MSG("		is_eliminated[" << adjacency_list[u] << "] -> ", is_eliminated[adjacency_list[u]], DEBUG_F_KERNEL);
 				DEBUG_MSG("		is_visited[" << adjacency_list[u] << "] -> ", is_visited[adjacency_list[u]], DEBUG_F_KERNEL);
-				DEBUG_MSG("		colors["<<v<<"] == colors["<<adjacency_list[u]<<"] -> " << colors[v] << " == ", colors[adjacency_list[u]], DEBUG_F_KERNEL);
+				DEBUG_MSG("		pivots["<<v<<"] == pivots["<<adjacency_list[u]<<"] -> " << pivots[v] << " == ", pivots[adjacency_list[u]], DEBUG_F_KERNEL);
 
                 // si controlla se non è stato eliminato E se non è stato visitato E se il colore del nodo che punta corrisponde a quello del nodo puntato
-				if(!is_eliminated[adjacency_list[u]] && !is_visited[adjacency_list[u]] && colors[v] == colors[adjacency_list[u]]) {
+				if(!is_eliminated[adjacency_list[u]] && !is_visited[adjacency_list[u]] && pivots[v] == pivots[adjacency_list[u]]) {
 					DEBUG_MSG("			is_visited[" << adjacency_list[u] << "] -> ", "TRUE", DEBUG_F_KERNEL);
                     // setta il nodo puntato a visitato
 					is_visited[adjacency_list[u]] = true;
@@ -47,7 +47,7 @@ void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, i
 	}
 }
 
-void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, int * colors, bool * is_visited, bool * is_eliminated, bool * is_expanded) {
+void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded) {
     // Tutti i pivot vengono segnati come visitati
     for(int i=0; i < num_nodes; i++) {
         is_visited[ pivots[i] ] = true;
@@ -57,14 +57,14 @@ void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     bool stop = false;
     while(!stop) {
         stop = true;
-        f_kernel(num_nodes, num_edges, nodes, adjacency_list, colors, is_visited, is_eliminated, is_expanded, stop);
+        f_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, is_visited, is_eliminated, is_expanded, stop);
 		for (int i = 0; i < num_nodes; i++){
 			DEBUG_MSG("is_visited[" << i << "] -> ", is_visited[i], DEBUG_REACH);
 		}
     }
 }
 
-void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * colors, bool * is_eliminated, bool &stop){
+void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * pivots, bool * is_eliminated, bool &stop){
 	bool elim;
 	for(int v=0; v < num_nodes; v++) {
 		// DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
@@ -79,14 +79,14 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
             // ---- PENSO CHE QUESTO NON SIA CORRETTO (INIZIO DABRO) ----
 
 			// Nel caso un arco di v faccia parte dello stesso sottografo, allora non va eliminato
-			// Non serve farlo anche per la lista trasposta perchè alla fine l'if sui colors e sarebbe la stessa cosa
+			// Non serve farlo anche per la lista trasposta perchè alla fine l'if sui pivots e sarebbe la stessa cosa
 			DEBUG_MSG("	nodo " << v << " e nodo ", v+1, DEBUG_TRIMMING_KERNEL);
 			DEBUG_MSG("	u va da " << nodes[v] << " a ", nodes[v+1], DEBUG_TRIMMING_KERNEL);
 			for(int u = nodes[v]; u < nodes[v+1]; u++){
 			 	DEBUG_MSG("adjacency_list[" << u << "] -> ", adjacency_list[u], DEBUG_TRIMMING_KERNEL);
 			 	// elim potrebbe ovviamente essere messo prima del for, per evitare cicli in più
 				// forse va mosso, in base a come capiremo ottimizzare in CUDA
-				if(colors[adjacency_list[u]] == colors[v] && !elim){
+				if(pivots[adjacency_list[u]] == pivots[v] && !elim){
 					DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
 			 		elim = false;
 				}	
@@ -104,22 +104,24 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
 	}
 }
 
-void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * colors, bool * is_eliminated) {
+void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * pivots, bool * is_eliminated) {
     bool stop = false;
     while(!stop) {
         stop = true;
-        trimming_kernel(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, colors, is_eliminated, stop);
+        trimming_kernel(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, pivots, is_eliminated, stop);
 		for (int i = 0; i < num_nodes; i++){
 			DEBUG_MSG("is_eliminated[" << i << "] -> ", is_eliminated[i], DEBUG_TRIMMING);
 		}
     }
 }
 
-void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
+void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
     int * write_id_for_pivots = new int[4 * num_nodes];
 	for (int i = 0; i < 5 * num_nodes; i++){
 		write_id_for_pivots[i] = -1;
 	}
+
+	int * colors = new int[num_nodes];
 	/*
 	Dai paper:
 	These subgraphs are 
@@ -132,6 +134,7 @@ void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, boo
 	they are recursively processed in parallel with the same algorithm
 	*/
 	stop = true;
+	int new_color;
 	for(int v=0; v < num_nodes; v++) {
 		// Questo primo caso non ha senso di esistere, perché possiamo lasciargli il valore precedente, tanto cambiaeranno tutti gli altri
 		// in realtà ha senso per conservare il valore del pivot, se poi si scopre che una volta diventato SCC il suo valore nel vettore pivots, allora il primo caso si può cancellare e moltiplicare per 3
@@ -158,11 +161,9 @@ void update(int num_nodes, int * colors, int * pivots, bool * fw_is_visited, boo
 		}
 		write_id_for_pivots[colors[v]] = v;
 	}
-
+	
 	for (int i = 0; i < 4 * num_nodes; i++)
         DEBUG_MSG("write_id_for_pivots[" + to_string(i) + "] = ", write_id_for_pivots[i], DEBUG_UPDATE);
-	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("colors[" + to_string(i) + "] = ", colors[i], DEBUG_UPDATE);
 	// setto i valori dei pivot che hanno vinto la race
 	// in CUDA questo è da fare dopo una sincronizzazione
 	for (int i = 0; i < num_nodes; i++) {
@@ -184,7 +185,6 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     bool * fw_is_expanded = new bool[num_nodes];
     bool * bw_is_expanded = new bool[num_nodes];
     int * pivots = new int[num_nodes];
-    int * colors = new int[num_nodes];
 
 	for (int i = 0; i < num_nodes; i++){
 		fw_is_visited[i] = false;
@@ -193,25 +193,26 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 		fw_is_expanded[i] = false;
 		bw_is_expanded[i] = false;
 		pivots[i] = 2;
-		colors[i] = 0;
 	}
 
     bool stop = false;
 
     while (!stop){
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
-        reach(num_nodes, num_edges, nodes, adjacency_list, pivots, colors, fw_is_visited, is_eliminated, fw_is_expanded);
+        reach(num_nodes, num_edges, nodes, adjacency_list, pivots, fw_is_visited, is_eliminated, fw_is_expanded);
 
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
-		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, colors, bw_is_visited, is_eliminated, bw_is_expanded);
+		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, bw_is_visited, is_eliminated, bw_is_expanded);
 
-		DEBUG_MSG("Trimming:" , "TESTATO SOLO TRAMITE IN/OUTDEGREE PERCHÈ SERVIREBBERO ANCHE I COLORS E NON LI ABBIAMO ANCORA FATTI", DEBUG_FW_BW);
-        trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, colors, is_eliminated);
+		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
+        trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, pivots, is_eliminated);
 
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
-		update(num_nodes, colors, pivots, fw_is_visited, bw_is_visited, is_eliminated, stop);
+		update(num_nodes, pivots, fw_is_visited, bw_is_visited, is_eliminated, stop);
+		cout << "FINE" << endl;
     }
 
+	
     // ---- INIZIO DEBUG ----
     for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("fw_is_visited[" + to_string(i) + "] = ", fw_is_visited[i], DEBUG_FW_BW);
@@ -221,8 +222,6 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
         DEBUG_MSG("is_eliminated[" + to_string(i) + "] = ", is_eliminated[i], DEBUG_FW_BW);
     for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_FW_BW);
-    for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("colors[" + to_string(i) + "] = ", colors[i], DEBUG_FW_BW);
     // ---- FINE DEBUG ----
 }
 
