@@ -25,7 +25,7 @@ void read_heading_numbers(ifstream & infile, int & num_nodes, int & num_edges) {
     ++num_nodes;
 }
 
-void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list) {
+void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list, bool *& is_u) {
     int u, v, weight;
     string line;
 
@@ -48,12 +48,13 @@ void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int n
     // nella lista delle adiacenze metto v
     adjacency_list[iterator_adjacency_list] = v;
 
-    // leggo finchè ci sono righe
-    while (getline(infile, line)) {
+    for(int i = 0; i < num_edges - 1; ++i) {
         // Immagino un arco (u,v)
+        getline(infile, line);
 	    istringstream iss(line);
         iss >> u;
 		iss >> v;
+
 		// Debuffing, si legge finché non c'è niente
 		while (iss >> weight) {}
 
@@ -70,6 +71,13 @@ void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int n
     // faccio puntare tutti gli ultimi nodi senza archi e il nodo dummy, ad una posizione dummy della lista d'adiacenza
     while(u < num_nodes) {
         nodes[++u] = num_edges;
+    }
+
+    // leggo finchè ci sono righe
+    while (getline(infile, line)) {
+	    istringstream iss(line);
+        iss >> u;
+        is_u[u] = true;
     }
 }
 
@@ -111,7 +119,7 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose) {
+int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, bool *& is_u) {
     ifstream infile(filename);
 
     read_heading_numbers(infile, num_nodes, num_edges);
@@ -121,18 +129,20 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 	adjacency_list = new int[num_edges];
 	nodes_transpose = new int[num_nodes];
 	adjacency_list_transpose = new int[num_edges];
+	is_u = new bool[num_nodes];
 
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
 		nodes[i] = 0;
 		nodes_transpose[i] = 0;
+	    is_u[i] = false;
 	}
 	for (int i = 0; i < num_edges; i++){
 		adjacency_list[i] = 0;
 		adjacency_list_transpose[i] = -1;
 	}
 
-    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list);
+    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, is_u);
 
     create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 

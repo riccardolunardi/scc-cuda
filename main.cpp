@@ -233,7 +233,8 @@ int main(int argc, char ** argv) {
 
 	int num_nodes, num_edges;
     int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose;
-    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
+	bool * is_u;
+    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_u);
 
 	for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
@@ -243,6 +244,8 @@ int main(int argc, char ** argv) {
         DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_MAIN);
 	for (int i = 0; i < num_edges; i++)
         DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN);
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 }
