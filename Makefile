@@ -22,3 +22,11 @@ run6:
 	@ ./main.out ./samples/sample_graph6
 run6B:
 	@ ./main.out ./samples/sample_graph6B
+run7A:
+	@ ./main.out ./samples/sample_graph7A
+run7B:
+	@ ./main.out ./samples/sample_graph7B
+run7C:
+	@ ./main.out ./samples/sample_graph7C
+run7D:
+	@ ./main.out ./samples/sample_graph7D
