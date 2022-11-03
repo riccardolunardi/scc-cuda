@@ -7,7 +7,7 @@ using namespace std;
 #define DEBUG_TRIMMING false
 #define DEBUG_UPDATE true
 #define DEBUG_FW_BW false
-#define DEBUG_MAIN true
+#define DEBUG_MAIN false
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
     for (int i = 0; i < num_nodes; i++){
@@ -178,10 +178,9 @@ void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visi
         DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_UPDATE);
 }
 
-void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose) {
+void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose, bool * is_eliminated) {
 	bool * fw_is_visited = new bool[num_nodes];
     bool * bw_is_visited = new bool[num_nodes];
-    bool * is_eliminated = new bool[num_nodes];
     bool * fw_is_expanded = new bool[num_nodes];
     bool * bw_is_expanded = new bool[num_nodes];
     int * pivots = new int[num_nodes];
@@ -189,7 +188,6 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 	for (int i = 0; i < num_nodes; i++){
 		fw_is_visited[i] = false;
 		bw_is_visited[i] = false;
-		is_eliminated[i] = false;
 		fw_is_expanded[i] = false;
 		bw_is_expanded[i] = false;
 		pivots[i] = 2;
@@ -233,8 +231,8 @@ int main(int argc, char ** argv) {
 
 	int num_nodes, num_edges;
     int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose;
-	bool * is_u;
-    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_u);
+	bool * is_eliminated;
+    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_eliminated);
 
 	for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
@@ -245,7 +243,7 @@ int main(int argc, char ** argv) {
 	for (int i = 0; i < num_edges; i++)
         DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
 	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN);
+        DEBUG_MSG("is_eliminated[" + to_string(i) + "] = ", is_eliminated[i], DEBUG_MAIN);
 
-	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
+	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_eliminated);
 }

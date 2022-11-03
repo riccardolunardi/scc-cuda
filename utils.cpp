@@ -25,7 +25,7 @@ void read_heading_numbers(ifstream & infile, int & num_nodes, int & num_edges) {
     ++num_nodes;
 }
 
-void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list, bool *& is_u) {
+void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list, bool *& is_eliminated) {
     int u, v, weight;
     string line;
 
@@ -77,7 +77,7 @@ void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int n
     while (getline(infile, line)) {
 	    istringstream iss(line);
         iss >> u;
-        is_u[u] = true;
+        is_eliminated[u] = false;
     }
 }
 
@@ -119,7 +119,7 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, bool *& is_u) {
+int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, bool *& is_eliminated) {
     ifstream infile(filename);
 
     read_heading_numbers(infile, num_nodes, num_edges);
@@ -129,20 +129,20 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 	adjacency_list = new int[num_edges];
 	nodes_transpose = new int[num_nodes];
 	adjacency_list_transpose = new int[num_edges];
-	is_u = new bool[num_nodes];
+	is_eliminated = new bool[num_nodes];
 
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
 		nodes[i] = 0;
 		nodes_transpose[i] = 0;
-	    is_u[i] = false;
+	    is_eliminated[i] = true;
 	}
 	for (int i = 0; i < num_edges; i++){
 		adjacency_list[i] = 0;
 		adjacency_list_transpose[i] = -1;
 	}
 
-    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, is_u);
+    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, is_eliminated);
 
     create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 

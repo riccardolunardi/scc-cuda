@@ -20,3 +20,5 @@ run5B:
 	@ ./main.out ./samples/sample_graph5B
 run6:
 	@ ./main.out ./samples/sample_graph6
+run6B:
+	@ ./main.out ./samples/sample_graph6B
