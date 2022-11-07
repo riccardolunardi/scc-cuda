@@ -46,6 +46,10 @@ per poi riparlarne prima di iniziare a scrivere codice.
     - Nessun elemento di prec(S) appartiene a U
 
 ## Come rappresentare i dati
+
+Per aiutarci, faremo uso del [sito](https://csacademy.com/app/graph_editor/) per rappresentare i grafi visualmente partendo da una lista di adiacenze.
+
+
 Si può rappresentare un grafo (in questo caso non connesso e non pesato) G(V, E) dove:
 
     V = {1,2,3,4,5}
