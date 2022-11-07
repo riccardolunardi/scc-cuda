@@ -6,8 +6,9 @@ using namespace std;
 #define DEBUG_TRIMMING_KERNEL false
 #define DEBUG_TRIMMING false
 #define DEBUG_UPDATE false
-#define DEBUG_FW_BW true
-#define DEBUG_MAIN true
+#define DEBUG_FW_BW false
+#define DEBUG_MAIN false
+#define DEBUG_FINAL true
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
     for (int i = 0; i < num_nodes; i++){
@@ -265,7 +266,7 @@ int main(int argc, char ** argv) {
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u);
 
 	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN);
+        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_FINAL);
 
 	trim_u(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u, is_scc);
 }
