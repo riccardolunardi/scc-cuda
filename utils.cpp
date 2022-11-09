@@ -69,7 +69,7 @@ void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int n
     }
 
     // faccio puntare tutti gli ultimi nodi senza archi e il nodo dummy, ad una posizione dummy della lista d'adiacenza
-    while(u < num_nodes) {
+    while(u < num_nodes - 1) {
         nodes[++u] = num_edges;
     }
 
