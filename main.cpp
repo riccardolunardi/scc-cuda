@@ -1,13 +1,13 @@
 #include "utils.cpp"
 using namespace std;
 
-#define DEBUG_F_KERNEL true
-#define DEBUG_REACH true
-#define DEBUG_TRIMMING_KERNEL true
-#define DEBUG_TRIMMING true
-#define DEBUG_UPDATE true
-#define DEBUG_FW_BW true
-#define DEBUG_MAIN true
+#define DEBUG_F_KERNEL false
+#define DEBUG_REACH false
+#define DEBUG_TRIMMING_KERNEL false
+#define DEBUG_TRIMMING false
+#define DEBUG_UPDATE false
+#define DEBUG_FW_BW false
+#define DEBUG_MAIN false
 #define DEBUG_FINAL true
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
@@ -224,21 +224,54 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     // ---- FINE DEBUG ----
 }
 
-void trim_u(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose, int *& pivots, bool * is_u, int * is_scc) {
-	is_scc = new int [num_nodes];
-	for (int i = 0; i < num_nodes; i++) {
-		is_scc[i] = pivots[i];
+void trim_u_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_u, int *& is_scc) {
+	for(int u = 0; u < num_nodes; ++u ) {
+		if(is_u[u] == true) {
+			for(int v = nodes[u]; v < nodes[u+1]; ++v) {
+				if(pivots[u] != pivots[adjacency_list[v]]) {
+					is_scc[pivots[adjacency_list[v]]] = -1;
+				}
+			}
+		}
+	}
+}
+
+void trim_u_propagation(int num_nodes, int * pivots, int *& is_scc) {
+	for(int u = 0; u < num_nodes; ++u ) {
+		is_scc[u] = is_scc[pivots[u]];
+	}
+}
+
+void calculate_more_than_one(int num_nodes, int * is_scc, int *& more_than_one) {
+	for(int u = 0; u < num_nodes; ++u ) {
+		if(is_scc[u] != -1)
+		++more_than_one[is_scc[u]];
+	}
+}
+
+void is_scc_adjust(int num_nodes, int * more_than_one, int *& is_scc) {
+	for(int u = 0; u < num_nodes; ++u ) {
+		if(more_than_one[u] == 1) {
+			is_scc[u] = -1;
+		}
+	}
+}
+
+void trim_u(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int *& pivots, bool * is_u, int *& is_scc) {
+	is_scc = (int*) malloc(num_nodes * sizeof(int));
+	for (int u = 0; u < num_nodes; ++u) {
+		is_scc[u] = pivots[u];
 	}
 
-    // per ogni nodo
-	for(int v=0; v < num_nodes; v++) {
-		// per ogni nodo da cui viene puntato
-		for(int u = nodes_transpose[v]; u < nodes_transpose[v+1]; u++) {
-			if(pivots[u] != pivots[v] && is_u[u] == true) {
-				is_scc[v] = -1;
-			}
-		}		
-	}
+	trim_u_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, is_u, is_scc);
+	// CUDA_SYNCRO
+	trim_u_propagation(num_nodes, pivots, is_scc);
+	// CUDA_SYNCRO
+	int * more_than_one = (int*) calloc(num_nodes, sizeof(int));
+	memset(more_than_one, 0, num_nodes);
+	calculate_more_than_one(num_nodes, is_scc, more_than_one);
+	// CUDA_SYNCRO
+	is_scc_adjust(num_nodes, more_than_one, is_scc);
 }
 
 int main(int argc, char ** argv) {
@@ -266,7 +299,10 @@ int main(int argc, char ** argv) {
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u);
 
 	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_FINAL);
+        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN);
 
-	trim_u(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u, is_scc);
+	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, is_u, is_scc);
+
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], DEBUG_FINAL);
 }
