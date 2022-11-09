@@ -118,7 +118,7 @@ void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, 
 
 void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
     int * write_id_for_pivots = new int[4 * num_nodes];
-	for (int i = 0; i < 5 * num_nodes; i++){
+	for (int i = 0; i < 4 * num_nodes; i++){
 		write_id_for_pivots[i] = -1;
 	}
 
