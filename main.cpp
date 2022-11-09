@@ -117,12 +117,12 @@ void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, 
 }
 
 void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
-    int * write_id_for_pivots = new int[4 * num_nodes];
+    int * write_id_for_pivots = (int*) malloc(4 * num_nodes * sizeof(int));
 	for (int i = 0; i < 4 * num_nodes; i++){
 		write_id_for_pivots[i] = -1;
 	}
 
-	int * colors = new int[num_nodes];
+	int * colors = (int*) malloc(num_nodes * sizeof(int));
 	/*
 	Dai paper:
 	These subgraphs are 
@@ -180,12 +180,12 @@ void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visi
 }
 
 void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose, int *& pivots, bool * is_u) {
-	bool * fw_is_visited = new bool[num_nodes];
-    bool * bw_is_visited = new bool[num_nodes];
-    bool * is_eliminated = new bool[num_nodes];
-    bool * fw_is_expanded = new bool[num_nodes];
-    bool * bw_is_expanded = new bool[num_nodes];
-    pivots = new int[num_nodes];
+	bool * fw_is_visited = (bool*) malloc(num_nodes * sizeof(bool));;
+    bool * bw_is_visited = (bool*) malloc(num_nodes * sizeof(bool));;
+    bool * is_eliminated = (bool*) malloc(num_nodes * sizeof(bool));;
+    bool * fw_is_expanded = (bool*) malloc(num_nodes * sizeof(bool));;
+    bool * bw_is_expanded = (bool*) malloc(num_nodes * sizeof(bool));;
+    pivots = (int*) malloc(num_nodes * sizeof(int));;
 
 	for (int i = 0; i < num_nodes; i++){
 		fw_is_visited[i] = false;
