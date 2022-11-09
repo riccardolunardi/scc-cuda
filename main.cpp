@@ -1,13 +1,13 @@
 #include "utils.cpp"
 using namespace std;
 
-#define DEBUG_F_KERNEL false
-#define DEBUG_REACH false
-#define DEBUG_TRIMMING_KERNEL false
-#define DEBUG_TRIMMING false
-#define DEBUG_UPDATE false
-#define DEBUG_FW_BW false
-#define DEBUG_MAIN false
+#define DEBUG_F_KERNEL true
+#define DEBUG_REACH true
+#define DEBUG_TRIMMING_KERNEL true
+#define DEBUG_TRIMMING true
+#define DEBUG_UPDATE true
+#define DEBUG_FW_BW true
+#define DEBUG_MAIN true
 #define DEBUG_FINAL true
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
