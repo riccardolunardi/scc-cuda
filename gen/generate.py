@@ -12,9 +12,11 @@ CYCLES_TO_CREATE = 20
 GRAPH_NAME = "./gen/sample_test"
 N_ARCS_TO_REMOVE = 40
 RATIO_U_NODES_TO_TOTAL_NODES = 1/5
+LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*2/11)
+UPPER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*2/9)
 
 def gen_cycles(_):
-    cycle_length = random.randint(int(CYCLES_TO_CREATE*2/11)+2, int(CYCLES_TO_CREATE*2/9)+6)
+    cycle_length = random.randint(LOWER_BOUND_LENGTH_CYCLE, UPPER_BOUND_LENGTH_CYCLE)
     return nx.cycle_graph(cycle_length, create_using=nx.DiGraph()), cycle_length
 
 def add_edges_to_main_graph(new_edges_with_offset):
