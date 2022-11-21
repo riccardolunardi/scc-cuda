@@ -1,4 +1,5 @@
 #include "utils.cpp"
+#include <cstring>
 using namespace std;
 
 #define DEBUG_F_KERNEL false
