@@ -6,10 +6,12 @@ import operator
 from itertools import repeat
 import os
 
+
 import networkx as nx
 import numpy as np
 
 from statistics import mean
+
 
 CYCLES_TO_CREATE = 300
 GRAPH_NAME = f"{os.getcwd()}/sample_test"
@@ -131,4 +133,3 @@ if __name__ == "__main__":
     sample_text += "\n" + "\n".join(list(map(str, random_u_nodes)))
     with open(GRAPH_NAME, "w") as sample:
         sample.write(sample_text)
-    
