@@ -9,7 +9,7 @@ using namespace std;
 #define DEBUG_UPDATE false
 #define DEBUG_FW_BW false
 #define DEBUG_MAIN false
-#define DEBUG_FINAL true
+#define DEBUG_FINAL false
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
     for (int i = 0; i < num_nodes; i++){
@@ -275,6 +275,23 @@ void trim_u(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int
 	is_scc_adjust(num_nodes, more_than_one, is_scc);
 }
 
+int count_distinct(int arr[], int n){
+    int res = 1;
+ 
+    // Pick all elements one by one
+    for (int i = 1; i < n; i++) {
+        int j = 0;
+        for (j = 0; j < i; j++)
+            if (arr[i] == arr[j])
+                break;
+ 
+        // If not printed earlier, then print it
+        if (i == j)
+            res++;
+    }
+    return res;
+}
+
 int main(int argc, char ** argv) {
     if (argc != 2) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
@@ -286,7 +303,7 @@ int main(int argc, char ** argv) {
 	bool * is_u;
     create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_u);
 
-	for (int i = 0; i < num_nodes; i++)
+	/* for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
 	for (int i = 0; i < num_edges; i++)
         DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_MAIN);
@@ -295,24 +312,17 @@ int main(int argc, char ** argv) {
 	for (int i = 0; i < num_edges; i++)
         DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
 	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN);
+        DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN); */
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u);
 
-	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN);
+	/* for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN); */
 
 	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, is_u, is_scc);
 
-	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], DEBUG_FINAL);
+	/* for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], DEBUG_FINAL); */
 
-	int result_counter = 0;
-	for (int i = 0; i < num_nodes; i++){
-		if (is_scc[i] != -1){
-			result_counter++;
-		}
-	}
-	
-	DEBUG_MSG("Number of SCCs found: ", result_counter, true);
+	DEBUG_MSG("Number of SCCs found: ", count_distinct(is_scc, num_nodes), true);
 }
