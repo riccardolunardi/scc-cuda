@@ -306,4 +306,13 @@ int main(int argc, char ** argv) {
 
 	for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], DEBUG_FINAL);
+
+	int result_counter = 0;
+	for (int i = 0; i < num_nodes; i++){
+		if (is_scc[i] != -1){
+			result_counter++;
+		}
+	}
+	
+	DEBUG_MSG("Number of SCCs found: ", result_counter, true);
 }
