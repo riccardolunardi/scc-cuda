@@ -30,3 +30,5 @@ run7C:
 	@ ./main.out ./samples/sample_graph7C
 run7D:
 	@ ./main.out ./samples/sample_graph7D
+run_fewu:
+	@ ./main.out ./samples/mid_tests/sample_test_gscc_fewu
