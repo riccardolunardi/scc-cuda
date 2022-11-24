@@ -252,25 +252,29 @@ void trim_u_propagation(int num_nodes, int * pivots, int *& is_scc) {
 	}
 }
 
-void calculate_more_than_one(int num_nodes, int * is_scc, int *& more_than_one) {
-	for(int u = 0; u < num_nodes; ++u ) {
-		if(is_scc[u] != -1)
-		++more_than_one[is_scc[u]];
-	}
-}
-
-__global__ void is_scc_adjust(int num_nodes, int * more_than_one_device, int * is_scc_device) {
+__global__ void calculate_more_than_one(int num_nodes, int * more_than_one_dev, int * is_scc_dev) {
 	int u = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if (u < num_nodes){
-		if(more_than_one_device[u] == 1) {
-			is_scc_device[u] = -1;
+		if(is_scc_dev[u] != -1){
+			// printf("%d, more_than_one_dev[%d] = %d\n", u, is_scc_dev[u], more_than_one_dev[is_scc_dev[u]]);
+			// atomicAdd può essere migliorato
+			atomicAdd(&more_than_one_dev[is_scc_dev[u]], 1);
 		}
 	}
 }
 
+__global__ void is_scc_adjust(int num_nodes, int * more_than_one_dev, int * is_scc_dev) {
+	int u = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if (u < num_nodes){
+		if(more_than_one_dev[u] == 1)
+			is_scc_dev[u] = -1;
+	}
+}
+
 int count_distinct(int arr[], int n){
-    int res = 1;
+    int res = 0;
  
     // Pick all elements one by one
     for (int i = 1; i < n; i++) {
@@ -287,6 +291,10 @@ int count_distinct(int arr[], int n){
 }
 
 int main(int argc, char ** argv) {
+	// Impostazione del device e dei flag
+	cudaDeviceProp prop;
+	cudaGetDeviceProperties(&prop, 0);
+	cudaSetDeviceFlags(cudaDeviceMapHost);
 
     if (argc != 2) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
@@ -294,7 +302,7 @@ int main(int argc, char ** argv) {
 	}
 
 	int num_nodes, num_edges;
-    int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose, * pivots, * is_scc;
+    int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose, * pivots, * is_scc, * more_than_one;
 	bool * is_u;
     create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_u);
 
@@ -309,41 +317,45 @@ int main(int argc, char ** argv) {
 	for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN); */
 
-	cudaDeviceProp prop;
-	cudaGetDeviceProperties(&prop, 0);
 	const int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
 	const int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u);
 
-	/* for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN); */
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN);
 
-	// is_scc = (int*) malloc(num_nodes * sizeof(int));
-	HANDLE_ERROR(cudaHostAlloc(&is_scc, num_nodes * sizeof(int), cudaHostAllocMapped));
-	for (int u = 0; u < num_nodes; ++u) {
-		is_scc[u] = pivots[u];
-	}
+	/*
+	Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
+	Quello che manca è capire quali SCC sono accettabili, ovvero tali che nell'insieme prec(SCC) non ci sia neanche un nodo che appartiene a U
+	*/ 
 
-	trim_u_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, is_u, is_scc);
-	// CUDA_SYNCRO
-	trim_u_propagation(num_nodes, pivots, is_scc);
-	// CUDA_SYNCRO
-	
-	int *more_than_one;
-	HANDLE_ERROR(cudaHostAlloc(&more_than_one, num_nodes * sizeof(int), cudaHostAllocMapped));
-	HANDLE_ERROR(cudaMemset(more_than_one, 0, num_nodes * sizeof(int)));
-	calculate_more_than_one(num_nodes, is_scc, more_than_one);
-
+	// Dichiarazioni di variabili device
 	int *is_scc_device, *more_then_one_device;
-	cudaSetDeviceFlags(cudaDeviceMapHost);
-	cudaHostAlloc(&more_than_one, num_nodes * sizeof(int), cudaHostAllocMapped);
+
+	// Allochiamo is_scc, che alla fine avrà per ogni nodo il pivot della sua SCC se la sua SCC è accettabile, altrimenti -1
+	// Per iniziare le assegnamo gli stessi valori di pivots, che verranno modificati in seguito
+	HANDLE_ERROR(cudaHostAlloc((void**)&is_scc, num_nodes * sizeof(int), cudaHostAllocMapped));
+	HANDLE_ERROR(cudaMemcpy(is_scc, pivots, num_nodes * sizeof(int), cudaMemcpyHostToHost));
+
+	// TODO: Parallelizzare queste due funzioni
+	trim_u_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, is_u, is_scc);
+	trim_u_propagation(num_nodes, pivots, is_scc);
+	
+
+	// Allochiamo more_than_one, che per ogni nodo che fa da pivot viene assegnato un contatore, il quale conta quante volte appare tale pivot
+	// Se appare solo una volta, allora il nodo non fa parte di nessuna SCC
+	HANDLE_ERROR(cudaHostAlloc((void**)&more_than_one, num_nodes * sizeof(int), cudaHostAllocMapped));
+	HANDLE_ERROR(cudaMemset(more_than_one, 0, num_nodes * sizeof(int)));
+	
 	cudaHostGetDevicePointer(&is_scc_device, is_scc, 0);
 	cudaHostGetDevicePointer(&more_then_one_device, more_than_one, 0);
+
+	calculate_more_than_one<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, more_then_one_device, is_scc_device);
 	is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, more_then_one_device, is_scc_device);
 	
 	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], true);
+        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], false);
 
 	DEBUG_MSG("Number of SCCs found: ", count_distinct(is_scc, num_nodes), true);
 }
