@@ -3,13 +3,13 @@
 using namespace std;
 
 #define DEBUG_F_KERNEL false
-#define DEBUG_REACH false
+#define DEBUG_REACH true
 #define DEBUG_TRIMMING_KERNEL false
-#define DEBUG_TRIMMING false
-#define DEBUG_UPDATE false
-#define DEBUG_FW_BW false
-#define DEBUG_MAIN false
-#define DEBUG_FINAL false
+#define DEBUG_TRIMMING true
+#define DEBUG_UPDATE true
+#define DEBUG_FW_BW true
+#define DEBUG_MAIN true
+#define DEBUG_FINAL true
 
 void f_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
     for (int i = 0; i < num_nodes; i++){
@@ -69,7 +69,7 @@ void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * pivots, bool * is_eliminated, bool &stop){
 	bool elim;
 	for(int v=0; v < num_nodes; v++) {
-		// DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
+		DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
 		if(!is_eliminated[v]){
 			elim = true;
 			
@@ -108,13 +108,17 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
 
 void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * pivots, bool * is_eliminated) {
     bool stop = false;
+	for (int i = 0; i < num_nodes; i++){
+		DEBUG_MSG("is_eliminated[" << i << "] -> ", is_eliminated[i], DEBUG_TRIMMING);
+	}
     while(!stop) {
         stop = true;
         trimming_kernel(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, pivots, is_eliminated, stop);
-		for (int i = 0; i < num_nodes; i++){
+    }
+
+	for (int i = 0; i < num_nodes; i++){
 			DEBUG_MSG("is_eliminated[" << i << "] -> ", is_eliminated[i], DEBUG_TRIMMING);
 		}
-    }
 }
 
 void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
@@ -158,14 +162,16 @@ void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visi
 				
 			if(!is_eliminated[v]){
 				stop = false;
-				DEBUG_MSG(v, " -> non eliminato, ma non visitato da fw e bw", DEBUG_UPDATE);
+				//DEBUG_MSG(v, " -> non eliminato, ma non visitato da fw e bw", DEBUG_UPDATE);
 			}
 		}
 		write_id_for_pivots[colors[v]] = v;
 	}
 	
 	for (int i = 0; i < 4 * num_nodes; i++)
-        DEBUG_MSG("write_id_for_pivots[" + to_string(i) + "] = ", write_id_for_pivots[i], DEBUG_UPDATE);
+        DEBUG_MSG("write_id_for_pivots[" + to_string(i) + "] = ", write_id_for_pivots[i], true);
+
+	//printf("STOP? %d\n", stop);
 	// setto i valori dei pivot che hanno vinto la race
 	// in CUDA questo è da fare dopo una sincronizzazione
 	for (int i = 0; i < num_nodes; i++) {
@@ -194,7 +200,7 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 		is_eliminated[i] = !is_u[i];
 		fw_is_expanded[i] = false;
 		bw_is_expanded[i] = false;
-		pivots[i] = 2;
+		pivots[i] = 5;
 	}
 
     bool stop = false;
@@ -303,7 +309,7 @@ int main(int argc, char ** argv) {
 	bool * is_u;
     create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_u);
 
-	/* for (int i = 0; i < num_nodes; i++)
+	for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
 	for (int i = 0; i < num_edges; i++)
         DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_MAIN);
@@ -312,17 +318,17 @@ int main(int argc, char ** argv) {
 	for (int i = 0; i < num_edges; i++)
         DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
 	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN); */
+        DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN);
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u);
 
-	/* for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN); */
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN);
 
 	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, is_u, is_scc);
 
-	/* for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], false); */
+	for (int i = 0; i < num_nodes; i++)
+        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], false);
 
 	DEBUG_MSG("Number of SCCs found: ", count_distinct(is_scc, num_nodes), true);
 }
