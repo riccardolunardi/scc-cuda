@@ -3,11 +3,11 @@
 using namespace std;
 
 #define DEBUG_F_KERNEL false
-#define DEBUG_REACH true
+#define DEBUG_REACH false
 #define DEBUG_TRIMMING_KERNEL false
-#define DEBUG_TRIMMING true
-#define DEBUG_UPDATE true
-#define DEBUG_FW_BW true
+#define DEBUG_TRIMMING false
+#define DEBUG_UPDATE false
+#define DEBUG_FW_BW false
 #define DEBUG_MAIN true
 #define DEBUG_FINAL true
 
@@ -66,15 +66,30 @@ void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     }
 }
 
-void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * pivots, bool * is_eliminated, bool &stop){
-	bool elim;
+void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * adjacency_list_transpose, int * pivots, bool * is_eliminated, bool &stop){
+	bool elim, forward, backward;
 	for(int v=0; v < num_nodes; v++) {
 		DEBUG_MSG("is_eliminated[" << v << "] -> ", is_eliminated[v], DEBUG_TRIMMING_KERNEL);
 		if(!is_eliminated[v]){
 			elim = true;
+
+			forward = false;
+			backward = false;
 			
-			// Nel caso un nodo abbia entrambi in_degree o out_degree diversi da 0 allora non va eliminato
-			if(nodes[v] != nodes[v+1] && nodes_transpose[v] != nodes_transpose[v+1]){
+			// Nel caso un nodo abbia entrambi in_degree o out_degree diversi da 0, tra i soli nodi non eliminati, allora non va eliminato
+			for(int u = nodes[v]; u < nodes[v+1]; u++){
+				if(!is_eliminated[adjacency_list[u]]) {
+					forward = true;
+				}
+			}
+			if(forward) {
+				for(int u = nodes_transpose[v]; u < nodes_transpose[v+1]; u++){
+					if(!is_eliminated[adjacency_list_transpose[u]]) {
+						backward = true;
+					}
+				}
+			}
+			if(backward) {
 				elim = false;
 			}
 
@@ -106,19 +121,19 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
 	}
 }
 
-void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * pivots, bool * is_eliminated) {
+void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * adjacency_list_transpose, int * pivots, bool * is_eliminated) {
     bool stop = false;
 	for (int i = 0; i < num_nodes; i++){
 		DEBUG_MSG("is_eliminated[" << i << "] -> ", is_eliminated[i], DEBUG_TRIMMING);
 	}
     while(!stop) {
         stop = true;
-        trimming_kernel(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, pivots, is_eliminated, stop);
+        trimming_kernel(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, pivots, is_eliminated, stop);
     }
 
 	for (int i = 0; i < num_nodes; i++){
-			DEBUG_MSG("is_eliminated[" << i << "] -> ", is_eliminated[i], DEBUG_TRIMMING);
-		}
+		DEBUG_MSG("is_eliminated[" << i << "] -> ", is_eliminated[i], DEBUG_TRIMMING);
+	}
 }
 
 void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visited, bool * is_eliminated, bool & stop) {
@@ -141,7 +156,8 @@ void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visi
 	*/
 	stop = true;
 	int new_color;
-	for(int v=0; v < num_nodes; v++) {
+	for(int v = 0; v < num_nodes; v++) {
+	// for (int v = num_nodes - 1; v >= 0; v--) {
 		// Questo primo caso non ha senso di esistere, perché possiamo lasciargli il valore precedente, tanto cambiaeranno tutti gli altri
 		// in realtà ha senso per conservare il valore del pivot, se poi si scopre che una volta diventato SCC il suo valore nel vettore pivots, allora il primo caso si può cancellare e moltiplicare per 3
 		
@@ -157,7 +173,7 @@ void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visi
 			}else if(fw_is_visited[v] != bw_is_visited[v] && fw_is_visited[v] == false){
 				colors[v] = 4 * pivots[v] + 2;
 			}else if(fw_is_visited[v] == bw_is_visited[v] && fw_is_visited[v] == false){
-				colors[v] = 4 * pivots[v] + 3;				
+				colors[v] = 4 * pivots[v] + 3;	
 			}
 				
 			if(!is_eliminated[v]){
@@ -169,7 +185,7 @@ void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visi
 	}
 	
 	for (int i = 0; i < 4 * num_nodes; i++)
-        DEBUG_MSG("write_id_for_pivots[" + to_string(i) + "] = ", write_id_for_pivots[i], true);
+        DEBUG_MSG("write_id_for_pivots[" + to_string(i) + "] = ", write_id_for_pivots[i], DEBUG_UPDATE);
 
 	//printf("STOP? %d\n", stop);
 	// setto i valori dei pivot che hanno vinto la race
@@ -200,8 +216,19 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 		is_eliminated[i] = !is_u[i];
 		fw_is_expanded[i] = false;
 		bw_is_expanded[i] = false;
-		pivots[i] = 5;
 	}
+
+	trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, pivots, is_eliminated);
+
+	int v = 0;
+	while(v < num_nodes && is_eliminated[v]) {
+		++v;
+	}
+	for (int i = 0; i < num_nodes; i++){
+		pivots[i] = v;
+	}
+
+	DEBUG_MSG("pivot = " , v, DEBUG_FW_BW);
 
     bool stop = false;
 
@@ -213,7 +240,7 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, bw_is_visited, is_eliminated, bw_is_expanded);
 
 		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, pivots, is_eliminated);
+        trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, pivots, is_eliminated);
 
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update(num_nodes, pivots, fw_is_visited, bw_is_visited, is_eliminated, stop);
