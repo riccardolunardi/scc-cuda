@@ -68,16 +68,14 @@ __global__ void f_kernel(int num_nodes, int num_edges, int * dev_nodes, int * de
 	}
 }
 
-void reach(int num_nodes, int num_edges, int * dev_nodes, int * dev_adjacency_list, int * dev_pivots, bool * is_visited, bool * dev_is_eliminated, bool * is_expanded, const int n_blocks, const int t_per_blocks) {
-	bool *dev_is_visited, *dev_is_expanded;
+void reach(int num_nodes, int num_edges, int * dev_nodes, int * dev_adjacency_list, int * dev_pivots, bool * dev_is_visited, bool * dev_is_eliminated, bool * is_expanded, const int n_blocks, const int t_per_blocks) {
+	bool *dev_is_expanded;
 	bool stop, *dev_stop;
 	stop = false;
 
-	HANDLE_ERROR(cudaMalloc((void**)&dev_is_visited, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_is_expanded, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_stop, sizeof(bool)));
 
-	HANDLE_ERROR(cudaMemcpy(dev_is_visited, is_visited, num_nodes * sizeof(bool), cudaMemcpyHostToDevice));
 	HANDLE_ERROR(cudaMemcpy(dev_is_expanded, is_expanded, num_nodes * sizeof(bool), cudaMemcpyHostToDevice));
 	
     // si effettua la chiusura in avanti/indietro
@@ -90,15 +88,13 @@ void reach(int num_nodes, int num_edges, int * dev_nodes, int * dev_adjacency_li
 		HANDLE_ERROR(cudaMemcpy(&stop, dev_stop, sizeof(bool), cudaMemcpyDeviceToHost));
     }
 	
-	HANDLE_ERROR(cudaMemcpy(is_visited, dev_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemcpy(is_expanded, dev_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemcpy(&stop, dev_stop, sizeof(bool), cudaMemcpyDeviceToHost));
 
-	for (int i = 0; i < num_nodes; i++){
+	/* for (int i = 0; i < num_nodes; i++){
 		DEBUG_MSG("is_visited[" << i << "] -> ", is_visited[i], DEBUG_REACH);
-	}
+	} */
 
-	HANDLE_ERROR(cudaFree(dev_is_visited));
 	HANDLE_ERROR(cudaFree(dev_is_expanded));
 	HANDLE_ERROR(cudaFree(dev_stop));
 
@@ -224,8 +220,8 @@ __global__ void initialize_pivot(int num_nodes, bool * dev_is_eliminated, int * 
 	}
 }
 
-void update(int num_nodes, int * dev_pivots, bool * fw_is_visited, bool * bw_is_visited, bool * dev_is_eliminated, bool * stop, const int n_blocks, const int t_per_blocks) {
-	bool * dev_fw_is_visited, * dev_bw_is_visited, *dev_stop;
+void update(int num_nodes, int * dev_pivots, bool * dev_fw_is_visited, bool * dev_bw_is_visited, bool * dev_is_eliminated, bool * stop, const int n_blocks, const int t_per_blocks) {
+	bool *dev_stop;
 	int * dev_colors;
 	long * dev_write_id_for_pivots;
 
@@ -239,15 +235,10 @@ void update(int num_nodes, int * dev_pivots, bool * fw_is_visited, bool * bw_is_
 	/* for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_UPDATE); */
 
-	HANDLE_ERROR(cudaMalloc((void**)&dev_fw_is_visited, num_nodes * sizeof(int)));
-	HANDLE_ERROR(cudaMalloc((void**)&dev_bw_is_visited, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_colors, num_nodes * sizeof(int)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_write_id_for_pivots, 4 * num_nodes * sizeof(long)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_stop, sizeof(bool)));
 	
-	
-	HANDLE_ERROR(cudaMemcpy(dev_fw_is_visited, fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyHostToDevice));
-	HANDLE_ERROR(cudaMemcpy(dev_bw_is_visited, bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyHostToDevice));
 	HANDLE_ERROR(cudaMemcpy(dev_colors, colors, num_nodes * sizeof(int), cudaMemcpyHostToDevice));
 	HANDLE_ERROR(cudaMemcpy(dev_write_id_for_pivots, write_id_for_pivots, 4 * num_nodes * sizeof(long), cudaMemcpyHostToDevice));
 	HANDLE_ERROR(cudaMemcpy(dev_stop, stop, sizeof(bool), cudaMemcpyHostToDevice));
@@ -266,11 +257,7 @@ void update(int num_nodes, int * dev_pivots, bool * fw_is_visited, bool * bw_is_
 	*/
 	
 	set_colors<<<n_blocks, t_per_blocks>>>(num_nodes, dev_fw_is_visited, dev_bw_is_visited, dev_pivots, dev_colors, dev_is_eliminated, dev_write_id_for_pivots, dev_stop);
-	HANDLE_ERROR(cudaMemcpy(fw_is_visited, dev_fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-	HANDLE_ERROR(cudaMemcpy(bw_is_visited, dev_bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemcpy(stop, dev_stop, sizeof(bool), cudaMemcpyDeviceToHost));
-
-
 	
 	HANDLE_ERROR(cudaFree(dev_stop));
 	
@@ -280,11 +267,7 @@ void update(int num_nodes, int * dev_pivots, bool * fw_is_visited, bool * bw_is_
 
 	HANDLE_ERROR(cudaMemcpy(colors, dev_colors, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemcpy(write_id_for_pivots, dev_write_id_for_pivots, 4 * num_nodes * sizeof(long), cudaMemcpyDeviceToHost));
-	HANDLE_ERROR(cudaMemcpy(fw_is_visited, dev_fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-	HANDLE_ERROR(cudaMemcpy(bw_is_visited, dev_bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 
-	HANDLE_ERROR(cudaFree(dev_fw_is_visited));
-	HANDLE_ERROR(cudaFree(dev_bw_is_visited));
 	HANDLE_ERROR(cudaFree(dev_colors));
 	HANDLE_ERROR(cudaFree(dev_write_id_for_pivots));
 
@@ -370,7 +353,7 @@ int main(int argc, char ** argv) {
 
 	int num_nodes, num_edges;
     int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose, * is_scc;
-	bool * fw_is_visited, * bw_is_visited, * is_eliminated, * fw_is_expanded, * bw_is_expanded, * is_u;
+	bool * is_eliminated, * fw_is_expanded, * bw_is_expanded, * is_u;
 
     create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_u);
 
@@ -410,16 +393,12 @@ int main(int argc, char ** argv) {
 	HANDLE_ERROR(cudaMemcpy(dev_nodes_transpose, nodes_transpose, (num_nodes+1) * sizeof(int), cudaMemcpyHostToDevice));
 	HANDLE_ERROR(cudaMemcpy(dev_adjacency_list_transpose, adjacency_list_transpose, num_edges * sizeof(int), cudaMemcpyHostToDevice));
 
-	fw_is_visited = (bool*) malloc(num_nodes * sizeof(bool));
-	bw_is_visited = (bool*) malloc(num_nodes * sizeof(bool));
 	is_eliminated = (bool*) malloc(num_nodes * sizeof(bool));
 	fw_is_expanded = (bool*) malloc(num_nodes * sizeof(bool));
 	bw_is_expanded = (bool*) malloc(num_nodes * sizeof(bool));
 
 	for (int i = 0; i < num_nodes; i++){
 		is_eliminated[i] = !is_u[i];
-		fw_is_visited[i] = false;
-		bw_is_visited[i] = false;
 		fw_is_expanded[i] = false;
 		bw_is_expanded[i] = false;
 	}
@@ -430,35 +409,31 @@ int main(int argc, char ** argv) {
 	
 	
 	trimming(num_nodes, num_edges, dev_nodes, dev_nodes_transpose, dev_adjacency_list, dev_adjacency_list_transpose, dev_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
-
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, dev_is_eliminated, dev_pivots, dev_fw_is_visited, dev_bw_is_visited);
-	
-	HANDLE_ERROR(cudaMemcpy(bw_is_visited, dev_bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-	HANDLE_ERROR(cudaMemcpy(fw_is_visited, dev_fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 	
     bool stop = false;
 
     while (!stop){
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
-        reach(num_nodes, num_edges, dev_nodes, dev_adjacency_list, dev_pivots, fw_is_visited, dev_is_eliminated, fw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+        reach(num_nodes, num_edges, dev_nodes, dev_adjacency_list, dev_pivots, dev_fw_is_visited, dev_is_eliminated, fw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
-		reach(num_nodes, num_edges, dev_nodes_transpose, dev_adjacency_list_transpose, dev_pivots, bw_is_visited, dev_is_eliminated, bw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		reach(num_nodes, num_edges, dev_nodes_transpose, dev_adjacency_list_transpose, dev_pivots, dev_bw_is_visited, dev_is_eliminated, bw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
         trimming(num_nodes, num_edges, dev_nodes, dev_nodes_transpose, dev_adjacency_list, dev_adjacency_list_transpose, dev_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
-		update(num_nodes, dev_pivots, fw_is_visited, bw_is_visited, dev_is_eliminated, &stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		update(num_nodes, dev_pivots, dev_fw_is_visited, dev_bw_is_visited, dev_is_eliminated, &stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		
     }
 	
     // ---- INIZIO DEBUG ----
 	if (DEBUG_FW_BW){
-		for (int i = 0; i < num_nodes; i++)
+		/* for (int i = 0; i < num_nodes; i++)
 			DEBUG_MSG("fw_is_visited[" + to_string(i) + "] = ", fw_is_visited[i], DEBUG_FW_BW);
 		for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("bw_is_visited[" + to_string(i) + "] = ", bw_is_visited[i], DEBUG_FW_BW);
+			DEBUG_MSG("bw_is_visited[" + to_string(i) + "] = ", bw_is_visited[i], DEBUG_FW_BW); */
 		for (int i = 0; i < num_nodes; i++)
 			DEBUG_MSG("is_eliminated[" + to_string(i) + "] = ", is_eliminated[i], DEBUG_FW_BW);
 		/* for (int i = 0; i < num_nodes; i++)
@@ -483,7 +458,6 @@ int main(int argc, char ** argv) {
 	HANDLE_ERROR(cudaMalloc((void**)&dev_is_u, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_is_scc, num_nodes * sizeof(int)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_more_than_one, num_nodes * sizeof(int)));
-	
 	
 	HANDLE_ERROR(cudaMemcpy(dev_is_scc, dev_pivots, num_nodes * sizeof(int), cudaMemcpyDeviceToDevice));
 	HANDLE_ERROR(cudaMemcpy(dev_is_u, is_u, num_nodes * sizeof(bool), cudaMemcpyHostToDevice));
