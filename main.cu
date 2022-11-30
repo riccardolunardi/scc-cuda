@@ -220,27 +220,15 @@ __global__ void initialize_pivot(int num_nodes, bool * dev_is_eliminated, int * 
 	}
 }
 
-void update(int num_nodes, int * dev_pivots, bool * dev_fw_is_visited, bool * dev_bw_is_visited, bool * dev_is_eliminated, long * dev_write_id_for_pivots, bool * stop, const int n_blocks, const int t_per_blocks) {
+void update(int num_nodes, int * dev_pivots, bool * dev_fw_is_visited, bool * dev_bw_is_visited, bool * dev_is_eliminated, long * dev_write_id_for_pivots, int * dev_colors, bool * stop, const int n_blocks, const int t_per_blocks) {
 	bool *dev_stop;
-	int * dev_colors;
 
-	int * colors = (int*) malloc(num_nodes * sizeof(int));
-
-	*stop = true;
-
-	/* for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_UPDATE); */
-
-	HANDLE_ERROR(cudaMalloc((void**)&dev_colors, num_nodes * sizeof(int)));
-	HANDLE_ERROR(cudaMalloc((void**)&dev_write_id_for_pivots, 4 * num_nodes * sizeof(long)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_stop, sizeof(bool)));
 	
-	HANDLE_ERROR(cudaMemcpy(dev_colors, colors, num_nodes * sizeof(int), cudaMemcpyHostToDevice));
 	HANDLE_ERROR(cudaMemset(dev_write_id_for_pivots, -1, 4 * num_nodes * sizeof(long)));
-	HANDLE_ERROR(cudaMemcpy(dev_stop, stop, sizeof(bool), cudaMemcpyHostToDevice));
+	HANDLE_ERROR(cudaMemset(dev_stop, true, sizeof(bool)));
 	
-	/*
-	Dai paper:
+	/* Dai paper:
 	These subgraphs are 
 	1) the strongly connected component with the pivot;
 	2) the subgraph given by vertices in the forward closure but not in the backward closure; 
@@ -248,31 +236,15 @@ void update(int num_nodes, int * dev_pivots, bool * dev_fw_is_visited, bool * de
 	4) the subgraph given by vertices that are neither in the forward nor in the backward closure.
 	
 	The subgraphs that do not contain the pivot form three independent instances of the same problem, and therefore, 
-	they are recursively processed in parallel with the same algorithm
-	*/
+	they are recursively processed in parallel with the same algorithm */
 	
 	set_colors<<<n_blocks, t_per_blocks>>>(num_nodes, dev_fw_is_visited, dev_bw_is_visited, dev_pivots, dev_colors, dev_is_eliminated, dev_write_id_for_pivots, dev_stop);
+	
 	HANDLE_ERROR(cudaMemcpy(stop, dev_stop, sizeof(bool), cudaMemcpyDeviceToHost));
-	
 	HANDLE_ERROR(cudaFree(dev_stop));
-	
 
 	// setto i valori dei pivot che hanno vinto la race	
 	set_race_winners<<<n_blocks, t_per_blocks>>>(num_nodes, dev_is_eliminated, dev_pivots, dev_colors, dev_write_id_for_pivots, dev_fw_is_visited, dev_bw_is_visited);
-
-	HANDLE_ERROR(cudaMemcpy(colors, dev_colors, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
-
-	HANDLE_ERROR(cudaFree(dev_colors));
-	HANDLE_ERROR(cudaFree(dev_write_id_for_pivots));
-
-	/* for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_UPDATE); */
-
-	/* for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("colors[" + to_string(i) + "] = ", colors[i], DEBUG_UPDATE); */
-
-	/* for (int i = 0; i < 4 * num_nodes; i++)
-        DEBUG_MSG("write_id_for_pivots[" + to_string(i) + "] = ", write_id_for_pivots[i], DEBUG_UPDATE); */
 }
 
 __global__ void trim_u_kernel(int num_nodes, int * dev_nodes, int * dev_adjacency_list, int * dev_pivots, bool * dev_is_u, int * dev_is_scc){
@@ -368,7 +340,7 @@ int main(int argc, char ** argv) {
 	const int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
 
 	// Dichiarazioni di variabili device
-	int * dev_is_scc, * dev_more_than_one, * dev_nodes, * dev_adjacency_list, * dev_nodes_transpose, * dev_adjacency_list_transpose, * dev_pivots;
+	int * dev_is_scc, * dev_more_than_one, * dev_nodes, * dev_adjacency_list, * dev_nodes_transpose, * dev_adjacency_list_transpose, * dev_pivots, * dev_colors;
 	bool * dev_is_u, * dev_is_eliminated, * dev_fw_is_visited, * dev_bw_is_visited;
 	long * dev_write_id_for_pivots;
 
@@ -377,12 +349,13 @@ int main(int argc, char ** argv) {
 	HANDLE_ERROR(cudaMalloc((void**)&dev_adjacency_list, num_edges * sizeof(int)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_adjacency_list_transpose, num_edges * sizeof(int)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_pivots, num_nodes * sizeof(int)));
+	HANDLE_ERROR(cudaMalloc((void**)&dev_colors, num_nodes * sizeof(int)));
 	
 	HANDLE_ERROR(cudaMalloc((void**)&dev_is_eliminated, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_fw_is_visited, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMalloc((void**)&dev_bw_is_visited, num_nodes * sizeof(bool)));
 
-	HANDLE_ERROR(cudaMalloc((void**)&dev_write_id_for_pivots, num_nodes * sizeof(long)));
+	HANDLE_ERROR(cudaMalloc((void**)&dev_write_id_for_pivots, 4 * num_nodes * sizeof(long)));
 
 	// Le strutture principali le copiamo nel device già qui, visto che non verranno mai modificate
 	HANDLE_ERROR(cudaMemcpy(dev_nodes, nodes, (num_nodes+1) * sizeof(int), cudaMemcpyHostToDevice));
@@ -421,29 +394,15 @@ int main(int argc, char ** argv) {
         trimming(num_nodes, num_edges, dev_nodes, dev_nodes_transpose, dev_adjacency_list, dev_adjacency_list_transpose, dev_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
-		update(num_nodes, dev_pivots, dev_fw_is_visited, dev_bw_is_visited, dev_is_eliminated, dev_write_id_for_pivots, &stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		update(num_nodes, dev_pivots, dev_fw_is_visited, dev_bw_is_visited, dev_is_eliminated, dev_write_id_for_pivots, dev_colors, &stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
     }
 	
-    // ---- INIZIO DEBUG ----
-	if (DEBUG_FW_BW){
-		/* for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("fw_is_visited[" + to_string(i) + "] = ", fw_is_visited[i], DEBUG_FW_BW);
-		for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("bw_is_visited[" + to_string(i) + "] = ", bw_is_visited[i], DEBUG_FW_BW); */
-		for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("is_eliminated[" + to_string(i) + "] = ", is_eliminated[i], DEBUG_FW_BW);
-		/* for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_FW_BW); */
-	}
-    // ---- FINE DEBUG ----
+
 
 	/* for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN); */
 
-	/*
-	Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
-	Quello che manca è capire quali SCC sono accettabili, ovvero tali che nell'insieme prec(SCC) non ci sia neanche un nodo che appartiene a U
-	*/ 
+	// Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
 
 	// Allochiamo is_scc, che alla fine avrà per ogni nodo il pivot della sua SCC se la sua SCC è accettabile, altrimenti -1
 	// Per iniziare le assegnamo gli stessi valori di pivots, che verranno modificati in seguito
