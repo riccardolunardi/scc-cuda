@@ -76,9 +76,7 @@ __global__ void set_pivots_visited(int num_nodes, bool * dev_is_visited, int * d
 	}
 }
 
-void reach(int num_nodes, int num_edges, int * dev_nodes, int * dev_adjacency_list, int * dev_pivots, bool * is_visited, bool * dev_is_eliminated, bool * is_expanded) {
-    int NOB = num_nodes / 1024 + (num_nodes % 1024 == 0 ? 0 : 1);
-
+void reach(int num_nodes, int num_edges, int * dev_nodes, int * dev_adjacency_list, int * dev_pivots, bool * is_visited, bool * dev_is_eliminated, bool * is_expanded, const int n_blocks, const int t_per_blocks) {
 	bool *dev_is_visited, *dev_is_expanded;
 	bool stop, *dev_stop;
 	stop = false;
@@ -91,14 +89,14 @@ void reach(int num_nodes, int num_edges, int * dev_nodes, int * dev_adjacency_li
 	HANDLE_ERROR(cudaMemcpy(dev_is_expanded, is_expanded, num_nodes * sizeof(bool), cudaMemcpyHostToDevice));
 
 	// Tutti i pivot vengono segnati come visitati
-	set_pivots_visited<<<NOB, 1024>>>(num_nodes, dev_is_visited, dev_pivots);
+	set_pivots_visited<<<n_blocks, t_per_blocks>>>(num_nodes, dev_is_visited, dev_pivots);
 	
     // si effettua la chiusura in avanti/indietro
     while(!stop) {
 		stop = true;
 		HANDLE_ERROR(cudaMemcpy(dev_stop, &stop, sizeof(bool), cudaMemcpyHostToDevice));
 		
-        f_kernel<<<NOB, 1024>>>(num_nodes, num_edges, dev_nodes, dev_adjacency_list, dev_pivots, dev_is_visited, dev_is_eliminated, dev_is_expanded, dev_stop);	
+        f_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, num_edges, dev_nodes, dev_adjacency_list, dev_pivots, dev_is_visited, dev_is_eliminated, dev_is_expanded, dev_stop);	
 
 		HANDLE_ERROR(cudaMemcpy(&stop, dev_stop, sizeof(bool), cudaMemcpyDeviceToHost));
     }
@@ -154,7 +152,7 @@ __global__ void trimming_kernel(int num_nodes, int * dev_nodes, int * dev_nodes_
 	}
 }
 
-void trimming(int num_nodes, int num_edges, int * dev_nodes, int * dev_nodes_transpose, int * dev_adjacency_list, int * dev_adjacency_list_transpose, bool * dev_is_eliminated, int NUMBER_OF_BLOCKS, int THREADS_PER_BLOCK) {
+void trimming(int num_nodes, int num_edges, int * dev_nodes, int * dev_nodes_transpose, int * dev_adjacency_list, int * dev_adjacency_list_transpose, bool * dev_is_eliminated, const int n_blocks, const int t_per_blocks) {
 	bool stop, *dev_stop;
 	stop = false;
 
@@ -166,7 +164,7 @@ void trimming(int num_nodes, int num_edges, int * dev_nodes, int * dev_nodes_tra
 
     while(!stop) {
 		HANDLE_ERROR(cudaMemset(dev_stop, true, sizeof(bool)));
-        trimming_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, dev_nodes, dev_nodes_transpose, dev_adjacency_list, dev_adjacency_list_transpose, dev_is_eliminated, dev_stop);
+        trimming_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, dev_nodes, dev_nodes_transpose, dev_adjacency_list, dev_adjacency_list_transpose, dev_is_eliminated, dev_stop);
 		HANDLE_ERROR(cudaMemcpy(&stop, dev_stop, sizeof(bool), cudaMemcpyDeviceToHost));
     }
 
@@ -233,7 +231,7 @@ __global__ void initialize_pivot(int num_nodes, bool * dev_is_eliminated, int * 
 	}
 }
 
-void update(int num_nodes, int * dev_pivots, bool * fw_is_visited, bool * bw_is_visited, bool * dev_is_eliminated, bool * stop) {
+void update(int num_nodes, int * dev_pivots, bool * fw_is_visited, bool * bw_is_visited, bool * dev_is_eliminated, bool * stop, const int n_blocks, const int t_per_blocks) {
 	bool * dev_fw_is_visited, * dev_bw_is_visited, *dev_stop;
 	int * dev_colors;
 	long * dev_write_id_for_pivots;
@@ -274,9 +272,7 @@ void update(int num_nodes, int * dev_pivots, bool * fw_is_visited, bool * bw_is_
 	they are recursively processed in parallel with the same algorithm
 	*/
 	
-	int NOB = num_nodes / 1024 + (num_nodes % 1024 == 0 ? 0 : 1);
-
-	set_colors<<<NOB, 1024>>>(num_nodes, dev_fw_is_visited, dev_bw_is_visited, dev_pivots, dev_colors, dev_is_eliminated, dev_write_id_for_pivots, dev_stop);
+	set_colors<<<n_blocks, t_per_blocks>>>(num_nodes, dev_fw_is_visited, dev_bw_is_visited, dev_pivots, dev_colors, dev_is_eliminated, dev_write_id_for_pivots, dev_stop);
 	HANDLE_ERROR(cudaMemcpy(fw_is_visited, dev_fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemcpy(bw_is_visited, dev_bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemcpy(stop, dev_stop, sizeof(bool), cudaMemcpyDeviceToHost));
@@ -288,7 +284,7 @@ void update(int num_nodes, int * dev_pivots, bool * fw_is_visited, bool * bw_is_
 	
 
 	// setto i valori dei pivot che hanno vinto la race	
-	set_race_winners<<<NOB, 1024>>>(num_nodes, dev_is_eliminated, dev_pivots, dev_colors, dev_write_id_for_pivots);
+	set_race_winners<<<n_blocks, t_per_blocks>>>(num_nodes, dev_is_eliminated, dev_pivots, dev_colors, dev_write_id_for_pivots);
 
 	HANDLE_ERROR(cudaMemcpy(colors, dev_colors, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemcpy(write_id_for_pivots, dev_write_id_for_pivots, 4 * num_nodes * sizeof(long), cudaMemcpyDeviceToHost));
@@ -439,16 +435,16 @@ int main(int argc, char ** argv) {
 
     while (!stop){
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
-        reach(num_nodes, num_edges, dev_nodes, dev_adjacency_list, dev_pivots, fw_is_visited, dev_is_eliminated, fw_is_expanded);
+        reach(num_nodes, num_edges, dev_nodes, dev_adjacency_list, dev_pivots, fw_is_visited, dev_is_eliminated, fw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
-		reach(num_nodes, num_edges, dev_nodes_transpose, dev_adjacency_list_transpose, dev_pivots, bw_is_visited, dev_is_eliminated, bw_is_expanded);
+		reach(num_nodes, num_edges, dev_nodes_transpose, dev_adjacency_list_transpose, dev_pivots, bw_is_visited, dev_is_eliminated, bw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
         trimming(num_nodes, num_edges, dev_nodes, dev_nodes_transpose, dev_adjacency_list, dev_adjacency_list_transpose, dev_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
-		update(num_nodes, dev_pivots, fw_is_visited, bw_is_visited, dev_is_eliminated, &stop);
+		update(num_nodes, dev_pivots, fw_is_visited, bw_is_visited, dev_is_eliminated, &stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		
     }
 	
