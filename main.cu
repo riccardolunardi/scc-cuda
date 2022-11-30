@@ -20,7 +20,7 @@ static void handle_error(cudaError_t err, const char *file, int line ) {
 }
 #define HANDLE_ERROR( err ) (handle_error( err, __FILE__, __LINE__ ))
 
-__global__ void f_kernel(int num_nodes, int num_edges, int * d_nodes, int * d_adjacency_list, int * d_pivots, bool * d_is_visited, bool * d_is_eliminated, bool * d_is_expanded, bool * d_stop){
+__global__ void f_kernel(int num_nodes, int * d_nodes, int * d_adjacency_list, int * d_pivots, bool * d_is_visited, bool * d_is_eliminated, bool * d_is_expanded, bool * d_stop){
 	// Esecuzione di un thread della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_visited		=	Lista che per ogni 'v' dice se è stato visitato dalla reach o meno
@@ -55,7 +55,7 @@ __global__ void f_kernel(int num_nodes, int num_edges, int * d_nodes, int * d_ad
 	}
 }
 
-void reach(int num_nodes, int num_edges, int * d_nodes, int * d_adjacency_list, int * d_pivots, bool * d_is_visited, bool * d_is_eliminated, bool * d_is_expanded, const int n_blocks, const int t_per_blocks) {
+void reach(int num_nodes, int * d_nodes, int * d_adjacency_list, int * d_pivots, bool * d_is_visited, bool * d_is_eliminated, bool * d_is_expanded, const int n_blocks, const int t_per_blocks) {
 	// Esecuzione ricorsiva della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_visited		=	Lista che per ogni 'v' dice se è stato visitato dalla reach o meno
@@ -72,7 +72,7 @@ void reach(int num_nodes, int num_edges, int * d_nodes, int * d_adjacency_list, 
     // Si effettua la chiusura in avanti/indietro
     while(!stop) {
 		HANDLE_ERROR(cudaMemset(d_stop, true, sizeof(bool)));
-        f_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, num_edges, d_nodes, d_adjacency_list, d_pivots, d_is_visited, d_is_eliminated, d_is_expanded, d_stop);	
+        f_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_is_visited, d_is_eliminated, d_is_expanded, d_stop);	
 		HANDLE_ERROR(cudaMemcpy(&stop, d_stop, sizeof(bool), cudaMemcpyDeviceToHost));
     }
 	
@@ -119,7 +119,7 @@ __global__ void trimming_kernel(int num_nodes, int * d_nodes, int * d_nodes_tran
 	}
 }
 
-void trimming(int num_nodes, int num_edges, int * d_nodes, int * d_nodes_transpose, int * d_adjacency_list, int * d_adjacency_list_transpose, bool * d_is_eliminated, const int n_blocks, const int t_per_blocks) {
+void trimming(int num_nodes, int * d_nodes, int * d_nodes_transpose, int * d_adjacency_list, int * d_adjacency_list_transpose, bool * d_is_eliminated, const int n_blocks, const int t_per_blocks) {
 	// Elimina iterativamente i nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
 	// @param:	is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no
 	// @return:	is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no, aggiornata dopo l'esecuzione del trimming
@@ -425,7 +425,7 @@ int main(int argc, char ** argv) {
 	
 	// Primo trimming per eliminare i nodi che, dopo la cancellazione dei nodi non in U,
 	// non avevano più out-degree e in-degree diverso da 0
-	trimming(num_nodes, num_edges, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
+	trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 	
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_eliminated, d_pivots, d_fw_is_visited, d_bw_is_visited);
@@ -436,15 +436,15 @@ int main(int argc, char ** argv) {
     while (!stop){
 		// Forward reach
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
-        reach(num_nodes, num_edges, d_nodes, d_adjacency_list, d_pivots, d_fw_is_visited, d_is_eliminated, d_fw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+        reach(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_fw_is_visited, d_is_eliminated, d_fw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		
 		// Backward reach
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
-		reach(num_nodes, num_edges, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_bw_is_visited, d_is_eliminated, d_bw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		reach(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_bw_is_visited, d_is_eliminated, d_bw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming(num_nodes, num_edges, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
+        trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);

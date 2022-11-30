@@ -11,10 +11,9 @@ using namespace std;
 #define DEBUG_MAIN false
 #define DEBUG_FINAL false
 
-void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * adjacency_list_transpose, int * pivots, bool * is_eliminated, bool &stop){
+void trimming_kernel(int num_nodes, int * nodes, int * nodes_transpose, int * adjacency_list, int * adjacency_list_transpose, bool * is_eliminated, bool &stop){
 	// Esegue un solo ciclo di eliminazione dei nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
-	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
-	// 			is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no
+	// @param:	is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no	
 	// @return:	is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no, aggiornata dopo l'esecuzione del trimming
 
 	bool elim, forward, backward;
@@ -51,8 +50,8 @@ void trimming_kernel(int num_nodes, int num_edges, int * nodes, int * nodes_tran
 	}
 }
 
-void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, int * adjacency_list, int * adjacency_list_transpose, int * pivots, bool * is_eliminated) {
-	// Elimina ricorsivamente i nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
+void trimming(int num_nodes, int * nodes, int * nodes_transpose, int * adjacency_list, int * adjacency_list_transpose, bool * is_eliminated) {
+	// Elimina iterativamente i nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
 	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
 	// 			is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no
 	// @return:	is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no, aggiornata dopo l'esecuzione del trimming
@@ -63,7 +62,7 @@ void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, 
 	}
     while(!stop) {
         stop = true;
-        trimming_kernel(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, pivots, is_eliminated, stop);
+        trimming_kernel(num_nodes, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, is_eliminated, stop);
     }
 
 	for (int i = 0; i < num_nodes; i++){
@@ -71,8 +70,8 @@ void trimming(int num_nodes, int num_edges, int * nodes, int * nodes_transpose, 
 	}
 }
 
-void reach_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
-	// Esecuzione di un singolo ciclo della chiusura in avanti
+void reach_kernel(int num_nodes, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded, bool &stop){
+	// Esecuzione di un singolo ciclo della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
 	// 			is_visited		=	Lista che per ogni 'v' dice se è stato visitato dalla reach o meno
 	// 			is_expanded		=	Lista che per ogni 'v' dice se sono stato visitati i figli diretti o meno
@@ -117,7 +116,7 @@ void reach_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_lis
 	}
 }
 
-void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded) {
+void reach(int num_nodes, int * nodes, int * adjacency_list, int * pivots, bool * is_visited, bool * is_eliminated, bool * is_expanded) {
 	// Esecuzione ricorsiva della chiusura in avanti
 	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
 	// 			is_visited		=	Lista che per ogni 'v' dice se è stato visitato dalla reach o meno
@@ -131,11 +130,11 @@ void reach(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
         is_visited[ pivots[i] ] = true;
     }
 
-    // si effettua la chiusura in avanti
+    // si effettua la chiusura in avanti/indietro
     bool stop = false;
     while(!stop) {
         stop = true;
-        reach_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, is_visited, is_eliminated, is_expanded, stop);
+        reach_kernel(num_nodes, nodes, adjacency_list, pivots, is_visited, is_eliminated, is_expanded, stop);
 		for (int i = 0; i < num_nodes; i++){
 			DEBUG_MSG("is_visited[" << i << "] -> ", is_visited[i], DEBUG_REACH);
 		}
@@ -213,7 +212,7 @@ void update(int num_nodes, int * pivots, bool * fw_is_visited, bool * bw_is_visi
 	}
 }
 
-void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose, int *& pivots, bool * is_u) {
+void fw_bw(int num_nodes, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose, int *& pivots, bool * is_u) {
 	// Calcola il Forward-Backward di un grafo
 	// @param:	nodes						=	Lista che per ogni 'v' contiene:
 	// 											nodes[v] = la poszione in 'adjacency_list' per leggere il primo nodo verso il quale parte un arco da v
@@ -250,7 +249,7 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
 
 	// Primo trimming per eliminare i nodi che, dopo la cancellazione dei nodi non in U,
 	// non avevano più out-degree e in-degree diverso da 0
-	trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, pivots, is_eliminated);
+	trimming(num_nodes, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, is_eliminated);
 
 	// Si prende come primo pivot globale, il primo nodo che si riesce a trovare non eliminato 
 	int v = 0;
@@ -269,15 +268,15 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     while (!stop){
 		// Forward reach
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
-        reach(num_nodes, num_edges, nodes, adjacency_list, pivots, fw_is_visited, is_eliminated, fw_is_expanded);
+        reach(num_nodes, nodes, adjacency_list, pivots, fw_is_visited, is_eliminated, fw_is_expanded);
 
 		// Backward reach
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
-		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, bw_is_visited, is_eliminated, bw_is_expanded);
+		reach(num_nodes, nodes_transpose, adjacency_list_transpose, pivots, bw_is_visited, is_eliminated, bw_is_expanded);
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, pivots, is_eliminated);
+        trimming(num_nodes, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, is_eliminated);
 
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
@@ -296,7 +295,7 @@ void fw_bw(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int 
     // ---- FINE DEBUG ----
 }
 
-void trim_u_kernel(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * pivots, bool * is_u, int *& is_scc) {
+void trim_u_kernel(int num_nodes, int * nodes, int * adjacency_list, int * pivots, bool * is_u, int *& is_scc) {
 	// Setta i pivot delle SCC uguale a -1 se questi ricevono archi da nodi u
 	// param: 	pivots = 	Lista che per ogni 'v' dice il valore del pivot della SCC
 	// 			is_scc =	Lista copia di pivots
@@ -359,7 +358,7 @@ void is_scc_adjust(int num_nodes, int * more_than_one, int *& is_scc) {
 	}
 }
 
-void trim_u(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int *& pivots, bool * is_u, int *& is_scc) {
+void trim_u(int num_nodes, int * nodes, int * adjacency_list, int *& pivots, bool * is_u, int *& is_scc) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
 	// @param:	pivots 	=	Lista che per ogni 'v' dice il valore del pivot della SCC
 	// 			is_scc 	=	Lista vuota
@@ -373,7 +372,7 @@ void trim_u(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int
 		is_scc[u] = pivots[u];
 	}
 
-	trim_u_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, is_u, is_scc);
+	trim_u_kernel(num_nodes, nodes, adjacency_list, pivots, is_u, is_scc);
 
 	trim_u_propagation(num_nodes, pivots, is_scc);
 
@@ -384,7 +383,7 @@ void trim_u(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int
 	is_scc_adjust(num_nodes, more_than_one, is_scc);
 }
 
-int count_distinct(int arr[], int n){
+int count_distinct_scc(int arr[], int n){
 	// Conta quanti elementi distinti ci sono in un array
 	// @param:	arr =	Array in cui contare il numero di elementi diverso
 	// 			n 	=	Numero di elementi nell'array
@@ -434,17 +433,17 @@ int main(int argc, char ** argv) {
         DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN);
 	}
 
-	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u);
+	fw_bw(num_nodes, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, is_u);
 
 	for (int i = 0; i < num_nodes; i++) {
         DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN);
 	}
 
-	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, is_u, is_scc);
+	trim_u(num_nodes, nodes, adjacency_list, pivots, is_u, is_scc);
 
 	for (int i = 0; i < num_nodes; i++) {
         DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], false);
 	}
 
-	DEBUG_MSG("Number of SCCs found: ", count_distinct(is_scc, num_nodes), true);
+	DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(is_scc, num_nodes), true);
 }
