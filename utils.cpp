@@ -25,7 +25,7 @@ void read_heading_numbers(ifstream & infile, int & num_nodes, int & num_edges) {
     ++num_nodes;
 }
 
-void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list, bool *& is_u) {
+void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list, char *& is_visited) {
     int u, v, weight;
     string line;
 
@@ -77,7 +77,8 @@ void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int n
     while (getline(infile, line)) {
 	    istringstream iss(line);
         iss >> u;
-        is_u[u] = true;
+        set_not_is_eliminated(is_visited[u]);
+        set_is_u(is_visited[u]);
     }
 }
 
@@ -119,7 +120,7 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, bool *& is_u) {
+int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, char *& is_visited) {
     ifstream infile(filename);
 
     read_heading_numbers(infile, num_nodes, num_edges);
@@ -129,20 +130,22 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 	adjacency_list = (int*) malloc(num_edges * sizeof(int));
 	nodes_transpose = (int*) malloc(num_nodes * sizeof(int));
 	adjacency_list_transpose = (int*) malloc(num_edges * sizeof(int));
-	is_u = (bool*) malloc(num_nodes * sizeof(bool));
+    is_visited = (char *) malloc(num_nodes * sizeof(char));
+    // Li setto tutti a eliminati
+    // Quando troverò i nodi di U, setterò gli stessi come non eliminati
+	memset(is_visited, 4, num_nodes);
 
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
 		nodes[i] = 0;
 		nodes_transpose[i] = 0;
-	    is_u[i] = false;
 	}
 	for (int i = 0; i < num_edges; i++){
 		adjacency_list[i] = 0;
 		adjacency_list_transpose[i] = -1;
 	}
 
-    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, is_u);
+    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, is_visited);
 
     create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
@@ -152,14 +155,18 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
     DEBUG_MSG("Number of nodes: ", num_nodes, DEBUG_CREATE);
     DEBUG_MSG("Number of edges: ", num_edges, DEBUG_CREATE);
 
-    for(int i = 0; i < num_nodes; i++)
+    for(int i = 0; i < num_nodes; i++) {
         DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_CREATE);
-    for(int i = 0; i < num_edges; i++)
+    }
+    for(int i = 0; i < num_edges; i++) {
         DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_CREATE);
-    for(int i = 0; i < num_nodes; i++)
+    }
+    for(int i = 0; i < num_nodes; i++) {
         DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_CREATE);
-    for(int i = 0; i < num_edges; i++)
+    }
+    for(int i = 0; i < num_edges; i++) {
         DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_CREATE);
+    }
 
     return 0;
 }

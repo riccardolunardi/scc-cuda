@@ -51,3 +51,7 @@ run_killer_compare:
 run_mini_compare:
 	@ ./main_avanti.out ./gen/mini > gen/avanti_mini.txt
 	@ ./main_indietro.out ./gen/mini > gen/indietro_mini.txt
+compile_is_checked:
+	@ g++ -o is_checked.out is_checked.cpp
+run_is_checked:
+	@ ./is_checked.out
