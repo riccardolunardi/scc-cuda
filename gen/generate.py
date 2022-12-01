@@ -13,12 +13,12 @@ import numpy as np
 from statistics import mean
 
 
-CYCLES_TO_CREATE = 300
+CYCLES_TO_CREATE = 12
 GRAPH_NAME = f"{os.getcwd()}/sample_test"
-RANDOM_ARCS_TO_ADD = 0.99
-N_ARCS_TO_REMOVE = 1500
-RATIO_U_NODES_TO_TOTAL_NODES = 5/6
-LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*5/60)
+RANDOM_ARCS_TO_ADD = 0.999
+N_ARCS_TO_REMOVE = 0
+RATIO_U_NODES_TO_TOTAL_NODES = 18/20
+LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*50/60)
 UPPER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*59/60)
 
 def gen_cycles(_):
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     order_adj.sort(key=operator.itemgetter(0,1))
     
     n_nodes = len(final_graph.nodes)
-    scc_in_u = itertools.chain.from_iterable(random.choices(not_only_one, k=int(0.10*len(not_only_one))))
+    scc_in_u = itertools.chain.from_iterable(random.choices(not_only_one, k=int(0.50*len(not_only_one))))
     random_u_nodes = set(random.choices(range(n_nodes),k=int(RATIO_U_NODES_TO_TOTAL_NODES*n_nodes))).union(set(scc_in_u))
 
     sample_text = f"% {len(order_adj)} {len(final_graph.nodes)}\n"

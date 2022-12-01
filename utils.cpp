@@ -125,11 +125,11 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
     read_heading_numbers(infile, num_nodes, num_edges);
 
 	// Definizione strutture dati principali
-	nodes = (int*) malloc(num_nodes * sizeof(int));;
-	adjacency_list = (int*) malloc(num_edges * sizeof(int));;
-	nodes_transpose = (int*) malloc(num_nodes * sizeof(int));;
-	adjacency_list_transpose = (int*) malloc(num_edges * sizeof(int));;
-	is_u = (bool*) malloc(num_nodes * sizeof(bool));;
+	nodes = (int*) malloc(num_nodes * sizeof(int));
+	adjacency_list = (int*) malloc(num_edges * sizeof(int));
+	nodes_transpose = (int*) malloc(num_nodes * sizeof(int));
+	adjacency_list_transpose = (int*) malloc(num_edges * sizeof(int));
+	is_u = (bool*) malloc(num_nodes * sizeof(bool));
 
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
