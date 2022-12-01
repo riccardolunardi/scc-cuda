@@ -1,4 +1,4 @@
-#include "utils.cpp"
+#include "../utils.cpp"
 #include <cstring>
 #include <cuda.h>
 using namespace std;
