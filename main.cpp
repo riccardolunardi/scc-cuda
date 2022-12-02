@@ -329,7 +329,7 @@ void trim_u(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int
 	is_scc_adjust(num_nodes, is_scc);
 }
 
-int count_distinct(int arr[], int n){
+int count_distinct_scc(int arr[], int n){
 	// Conta quanti elementi distinti ci sono in un array
 	// @param:	arr =	Array in cui contare il numero di elementi diverso
 	// 			n 	=	Numero di elementi nell'array
@@ -388,5 +388,5 @@ int main(int argc, char ** argv) {
         DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], false);
 	}
 
-	DEBUG_MSG("Number of SCCs found: ", count_distinct(is_scc, num_nodes), true);
+	DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(is_scc, num_nodes), true);
 }
