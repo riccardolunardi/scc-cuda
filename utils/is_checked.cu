@@ -1,0 +1,32 @@
+#include <iostream>
+using namespace std;
+ 
+// Usiamo un vettore di char
+// ogni char è composto da 8 bit così assegnati:
+//  - is_fw_visited     1° bit da destra
+//  - is_bw_visited     2° bit da destra
+//  - is_eliminated     3° bit da destra
+//  - is_fw_expanded    4° bit da destra
+//  - is_bw_expanded    5° bit da destra
+//  - is_u              6° bit da destra
+
+__device__ bool get_is_fw_visited(char value)  { return value & 1; }
+__device__ bool get_is_bw_visited(char value)  { return value & 2; }
+__device__ bool get_is_eliminated(char value)  { return value & 4; }
+__device__ bool get_is_fw_expanded(char value) { return value & 8; }
+__device__ bool get_is_bw_expanded(char value) { return value & 16; }
+__device__ bool get_is_u(char value)           { return value & 32; }
+
+__device__ void set_is_fw_visited(char & value)    { value |= 1; }
+__device__ void set_is_bw_visited(char & value)    { value |= 2; }
+__device__ void set_is_eliminated(char & value)    { value |= 4; }
+__device__ void set_is_fw_expanded(char & value)   { value |= 8; }
+__device__ void set_is_bw_expanded(char & value)   { value |= 16; }
+__device__ void set_is_u(char & value)             { value |= 32; }
+
+__device__ void set_not_is_fw_visited(char & value)    { value &= 254; }
+__device__ void set_not_is_bw_visited(char & value)    { value &= 253; }
+__device__ void set_not_is_eliminated(char & value)    { value &= 251; }
+__device__ void set_not_is_fw_expanded(char & value)   { value &= 247; }
+__device__ void set_not_is_bw_expanded(char & value)   { value &= 239; }
+__device__ void set_not_is_u(char & value)             { value &= 223; }
