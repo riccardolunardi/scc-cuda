@@ -287,20 +287,26 @@ void calculate_more_than_one(int num_nodes, int * is_scc, int *& more_than_one) 
 	}
 }
 
-void is_scc_adjust(int num_nodes, int * more_than_one, int *& is_scc) {
+void is_scc_adjust(int num_nodes, int *& is_scc) {
 	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
-	// @param: more_than_one = 	Lista che per ogni nodo 'v' dice se questo è un pivot.
-	// 							Se 'v' è pivot: 								more_than_one[v] = numero di elementi nella sua SCC,
-	// 							Se 'v' non è pivot, ma fa parte di una SCC:		more_than_one[v] = 0
-	// 							Se 'v' non è pivot e non fa parte di una SCC:	more_than_one[v] = 0
+	// In questa fase la lista ha -1 nei valori dei pivot. Per fixare, i nodi facendi parte di quella SCC
+	// andranno a scrivere nella posizione del pivot, il valore del pivot stesso
+	// @param: is_scc =		Lista che per ogni nodo 'v' dice se questo fa parte di una SCC.
+	// 						Se fa parte di una SCC: 	is_scc[v] = valore del pivot,
+	// 						Se non fa parte di una SCC:	is_scc[v] = -1
+	//						In questa fase la lista ha -1 nei valori dei pivot
 	// @return: is_scc =	Lista che per ogni nodo 'v' dice se questo fa parte di una SCC.
 	// 						Se fa parte di una SCC: 	is_scc[v] = valore del pivot,
 	// 						Se non fa parte di una SCC:	is_scc[v] = -1
 
-	for(int u = 0; u < num_nodes; ++u ) {
-		if(more_than_one[u] == 1) {
+	for (int u = 0; u < num_nodes; ++u) {
+		if (is_scc[u] == u)
 			is_scc[u] = -1;
-		}
+	}
+
+	for (int u = 0; u < num_nodes; ++u) {
+		if (is_scc[u] != -1)
+			is_scc[is_scc[u]] = is_scc[u];
 	}
 }
 
@@ -319,14 +325,8 @@ void trim_u(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int
 	}
 
 	trim_u_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, is_visited, is_scc);
-
 	trim_u_propagation(num_nodes, pivots, is_scc);
-
-	int * more_than_one = (int*) calloc(num_nodes, sizeof(int));
-	memset(more_than_one, 0, num_nodes);
-	calculate_more_than_one(num_nodes, is_scc, more_than_one);
-
-	is_scc_adjust(num_nodes, more_than_one, is_scc);
+	is_scc_adjust(num_nodes, is_scc);
 }
 
 int count_distinct(int arr[], int n){
