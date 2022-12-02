@@ -2,7 +2,6 @@
 #include <fstream>
 #include <string>
 #include <iostream>
-#include "./utils/is_checked.cpp"
 using namespace std;
 
 #define DEBUG_CREATE false
@@ -26,7 +25,7 @@ void read_heading_numbers(ifstream & infile, int & num_nodes, int & num_edges) {
     ++num_nodes;
 }
 
-void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list, char *& is_visited) {
+void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int num_edges, int *& nodes, int *& adjacency_list, char *& status) {
     int u, v, weight;
     string line;
 
@@ -78,8 +77,8 @@ void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int n
     while (getline(infile, line)) {
 	    istringstream iss(line);
         iss >> u;
-        set_not_is_eliminated(is_visited[u]);
-        set_is_u(is_visited[u]);
+        set_not_is_eliminated(status[u]);
+        set_is_u(status[u]);
     }
 }
 
@@ -121,7 +120,7 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, char *& is_visited) {
+int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, char *& status) {
     ifstream infile(filename);
 
     read_heading_numbers(infile, num_nodes, num_edges);
@@ -131,10 +130,10 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 	adjacency_list = (int*) malloc(num_edges * sizeof(int));
 	nodes_transpose = (int*) malloc(num_nodes * sizeof(int));
 	adjacency_list_transpose = (int*) malloc(num_edges * sizeof(int));
-    is_visited = (char *) malloc(num_nodes * sizeof(char));
+    status = (char *) malloc(num_nodes * sizeof(char));
     // Li setto tutti a eliminati
     // Quando troverò i nodi di U, setterò gli stessi come non eliminati
-	memset(is_visited, 4, num_nodes);
+	memset(status, 4, num_nodes);
 
     // Inizializzazione delle liste 
 	for (int i = 0; i < num_nodes; i++){
@@ -146,7 +145,7 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 		adjacency_list_transpose[i] = -1;
 	}
 
-    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, is_visited);
+    create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, status);
 
     create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
