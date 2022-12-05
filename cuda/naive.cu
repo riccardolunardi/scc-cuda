@@ -131,7 +131,7 @@ void trimming(int num_nodes, int * d_nodes, int * d_nodes_transpose, int * d_adj
 
     while(!stop) {
 		HANDLE_ERROR(cudaMemset(d_stop, true, sizeof(bool)));
-        trimming_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, d_stop);
+        trimming_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, d_stop);
 		HANDLE_ERROR(cudaMemcpy(&stop, d_stop, sizeof(bool), cudaMemcpyDeviceToHost));
     }
 
@@ -365,9 +365,9 @@ int main(int argc, char ** argv) {
 
 	int num_nodes, num_edges;
     int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose, * is_scc;
-	bool * is_eliminated, * is_u;
+	char * status;
 
-    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_u);
+    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 
 	if(DEBUG_MAIN){
 		for (int i = 0; i < num_nodes; i++)
@@ -387,7 +387,7 @@ int main(int argc, char ** argv) {
 
 	// Dichiarazioni di variabili device
 	int * d_is_scc, * d_more_than_one, * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots, * d_colors;
-	bool * d_is_u, * d_is_eliminated, * d_fw_is_visited, * d_bw_is_visited, * d_fw_is_expanded, * d_bw_is_expanded;
+	char * d_status;
 	long * d_write_id_for_pivots;
 
 	HANDLE_ERROR(cudaMalloc((void**)&d_nodes, (num_nodes+1) * sizeof(int)));
@@ -411,21 +411,16 @@ int main(int argc, char ** argv) {
 	HANDLE_ERROR(cudaMemcpy(d_nodes_transpose, nodes_transpose, (num_nodes+1) * sizeof(int), cudaMemcpyHostToDevice));
 	HANDLE_ERROR(cudaMemcpy(d_adjacency_list_transpose, adjacency_list_transpose, num_edges * sizeof(int), cudaMemcpyHostToDevice));
 
-	is_eliminated = (bool*) malloc(num_nodes * sizeof(bool));
-
-	for (int i = 0; i < num_nodes; i++){
-		is_eliminated[i] = !is_u[i];
-	}
 	
-	HANDLE_ERROR(cudaMemcpy(d_is_eliminated, is_eliminated, num_nodes * sizeof(bool), cudaMemcpyHostToDevice));
-	HANDLE_ERROR(cudaMemset(d_fw_is_visited, false, num_nodes * sizeof(bool)));
+	HANDLE_ERROR(cudaMemcpy(d_status, status, num_nodes * sizeof(char), cudaMemcpyHostToDevice));
+	HANDLE_ERROR(cudaMemset(d_status, false, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMemset(d_bw_is_visited, false, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMemset(d_fw_is_expanded, false, num_nodes * sizeof(bool)));
 	HANDLE_ERROR(cudaMemset(d_bw_is_expanded, false, num_nodes * sizeof(bool)));
 	
 	// Primo trimming per eliminare i nodi che, dopo la cancellazione dei nodi non in U,
 	// non avevano più out-degree e in-degree diverso da 0
-	trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
+	trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 	
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_eliminated, d_pivots, d_fw_is_visited, d_bw_is_visited);
