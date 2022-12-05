@@ -469,6 +469,9 @@ int main(int argc, char ** argv) {
 
 	HANDLE_ERROR(cudaFree(d_pivots));
 
+	// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
+	// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
+	// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
 	is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_scc);
 	
 	HANDLE_ERROR(cudaFree(d_more_than_one));
