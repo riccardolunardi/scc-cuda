@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <iostream>
+#include "../utils/is_checked.cpp"
 using namespace std;
 
 #define DEBUG_CREATE false
