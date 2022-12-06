@@ -17,3 +17,4 @@ main.out
 .DS_Store
 paper/*
 gen/graph*
+misc/*.txt
