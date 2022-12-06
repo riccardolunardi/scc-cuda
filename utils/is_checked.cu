@@ -25,6 +25,7 @@ __host__ __device__ bool get_is_d_u(char * value)           { return *value & 32
 
 __host__ __device__ void set_is_d_fw_visited(char * value)    { *value |= 1; }
 __host__ __device__ void set_is_d_bw_visited(char * value)    { *value |= 2; }
+__host__ __device__ void set_is_d_bw_fw_visited(char * value)    { *value |= 3; }
 __host__ __device__ void set_is_d_eliminated(char * value)    { *value |= 4; }
 __host__ __device__ void set_is_d_fw_expanded(char * value)   { *value |= 8; }
 __host__ __device__ void set_is_d_bw_expanded(char * value)   { *value |= 16; }
