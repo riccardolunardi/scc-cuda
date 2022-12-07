@@ -372,7 +372,7 @@ int main(unsigned int argc, char ** argv) {
 	}
 
 	unsigned int num_nodes, num_edges;
-	int unsigned * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose, * is_scc;
+	int unsigned * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose;
 	bool * d_stop;
 	char * status;
 
@@ -394,7 +394,6 @@ int main(unsigned int argc, char ** argv) {
 
 	// Dichiarazioni di variabili device
 	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots;
-	int * d_is_scc;
 	char * d_status;
 	unsigned long * d_write_id_for_pivots;
 
@@ -470,19 +469,12 @@ int main(unsigned int argc, char ** argv) {
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update(num_nodes, d_pivots, d_status, d_write_id_for_pivots, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
     }
-	
-	//Disallocamento della memoria iniziale
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_is_scc, num_nodes * sizeof(unsigned int), stream[0]));
-	HANDLE_ERROR(cudaMemcpyAsync(d_is_scc, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToDevice, stream[1]));
 
 	HANDLE_ERROR(cudaFreeAsync(d_write_id_for_pivots, stream[2]));
 	HANDLE_ERROR(cudaFreeAsync(d_stop, stream[3]));
 	
 	// Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
 	// Allochiamo is_scc, che alla fine avrà per ogni nodo il pivot della sua SCC se la sua SCC è accettabile, altrimenti -1
-	
-	// Per iniziare le assegnamo gli stessi valori di pivots, che verranno modificati in seguito
-	is_scc = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
 	
 	cudaStreamSynchronize(stream[0]);
 	cudaStreamSynchronize(stream[1]);
@@ -504,12 +496,7 @@ int main(unsigned int argc, char ** argv) {
 	// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
 	is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
 	
-	
-	HANDLE_ERROR(cudaMemcpyAsync(is_scc, d_is_scc, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost, stream[10]));
-
 	cudaDeviceSynchronize();
-
-	HANDLE_ERROR(cudaFree(d_is_scc));
 
 	for (unsigned int i=0; i<11; ++i){
 		cudaStreamDestroy(stream[i]);
