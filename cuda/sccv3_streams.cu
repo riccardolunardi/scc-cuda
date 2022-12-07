@@ -14,6 +14,8 @@ using namespace std;
 #define DEBUG_MAIN false
 #define DEBUG_FINAL true
 
+#define CUDA_STREAMS 7
+
 static void handle_error(cudaError_t err, const char *file, unsigned int line ) {
 	if (err != cudaSuccess) {
 		printf( "%s in %s at line %d\n", cudaGetErrorString( err ), file, line );
@@ -162,8 +164,6 @@ void trimming(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int
         trimming_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, d_stop);
 		HANDLE_ERROR(cudaMemcpy(&stop, d_stop, sizeof(bool), cudaMemcpyDeviceToHost));
     }
-
-	HANDLE_ERROR(cudaMemset(d_stop, false, sizeof(bool)));
 }
 
 __global__ void set_colors(unsigned int const num_nodes, char * d_status, unsigned int * d_pivots, unsigned long * d_write_id_for_pivots, bool * d_stop){
@@ -403,47 +403,47 @@ int main(unsigned int argc, char ** argv) {
 	get_status h_get_fw_visited, h_get_bw_visited, h_get_fw_expanded, h_get_bw_expanded;
 	set_status h_set_fw_visited, h_set_bw_visited, h_set_fw_expanded, h_set_bw_expanded;
 
-	cudaStream_t stream[11];
-	for (unsigned int i=0; i<11; ++i){
+	cudaStream_t stream[CUDA_STREAMS];
+	for (unsigned int i=0; i<CUDA_STREAMS; ++i){
 		cudaStreamCreate(&stream[i]);
 	}
 
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_nodes, (num_nodes+1) * sizeof(unsigned int), stream[0]));
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_nodes_transpose, (num_nodes+1) * sizeof(unsigned int), stream[1]));
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list, num_edges * sizeof(unsigned int), stream[2]));
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list_transpose, num_edges * sizeof(unsigned int), stream[3]));
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_status, num_nodes * sizeof(char), stream[4]));
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_stop, sizeof(bool), stream[5]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_write_id_for_pivots, 4 * num_nodes * sizeof(unsigned long), stream[0]));
+	
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list, num_edges * sizeof(unsigned int), stream[1]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list_transpose, num_edges * sizeof(unsigned int), stream[2]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_nodes, (num_nodes+1) * sizeof(unsigned int), stream[3]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_nodes_transpose, (num_nodes+1) * sizeof(unsigned int), stream[4]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_status, num_nodes * sizeof(char), stream[5]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_pivots, num_nodes * sizeof(unsigned int), stream[6]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_stop, sizeof(bool), stream[1]));
 
 	// Le strutture principali le copiamo nel device già qui, visto che non verranno mai modificate
-	HANDLE_ERROR(cudaMemcpyAsync(d_nodes, nodes, (num_nodes+1) * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[6]));
-	HANDLE_ERROR(cudaMemcpyAsync(d_adjacency_list, adjacency_list, num_edges * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[7]));
-	HANDLE_ERROR(cudaMemcpyAsync(d_nodes_transpose, nodes_transpose, (num_nodes+1) * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[8]));
-	HANDLE_ERROR(cudaMemcpyAsync(d_adjacency_list_transpose, adjacency_list_transpose, num_edges * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[9]));
-	HANDLE_ERROR(cudaMemcpyAsync(d_status, status, num_nodes * sizeof(char), cudaMemcpyHostToDevice, stream[10]));
+	HANDLE_ERROR(cudaMemcpyAsync(d_adjacency_list, adjacency_list, num_edges * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[1]));
+	HANDLE_ERROR(cudaMemcpyAsync(d_adjacency_list_transpose, adjacency_list_transpose, num_edges * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[2]));
+	HANDLE_ERROR(cudaMemcpyAsync(d_nodes, nodes, (num_nodes+1) * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[3]));
+	HANDLE_ERROR(cudaMemcpyAsync(d_nodes_transpose, nodes_transpose, (num_nodes+1) * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[4]));
+	HANDLE_ERROR(cudaMemcpyAsync(d_status, status, num_nodes * sizeof(char), cudaMemcpyHostToDevice, stream[6]));
 
-	for(unsigned int i=0; i<11; ++i){
-		cudaStreamSynchronize(stream[i]);
-	}
+	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_visited, dev_get_fw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[0]));
+	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_bw_visited, dev_get_bw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[5]));
+	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_expanded, dev_get_fw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[1]));
+	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_bw_expanded, dev_get_bw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[2]));
 	
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_write_id_for_pivots, 4 * num_nodes * sizeof(unsigned long), stream[0]));
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_pivots, num_nodes * sizeof(unsigned int), stream[1]));
+	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_fw_visited, dev_set_fw_visited, sizeof(set_status), 0, cudaMemcpyDefault, stream[3]));
+	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_bw_visited, dev_set_bw_visited, sizeof(set_status), 0, cudaMemcpyDefault, stream[4]));
+	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_fw_expanded, dev_set_fw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[5]));
+	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_bw_expanded, dev_set_bw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[6]));
+	
+	cudaStreamSynchronize(stream[1]);
+	cudaStreamSynchronize(stream[2]);
+	cudaStreamSynchronize(stream[3]);
+	cudaStreamSynchronize(stream[4]);
+	cudaStreamSynchronize(stream[5]);
 
-	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_visited, dev_get_fw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[2]));
-	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_bw_visited, dev_get_bw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[3]));
-	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_expanded, dev_get_fw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[4]));
-	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_bw_expanded, dev_get_bw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[5]));
-	
-	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_fw_visited, dev_set_fw_visited, sizeof(set_status), 0, cudaMemcpyDefault, stream[6]));
-	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_bw_visited, dev_set_bw_visited, sizeof(set_status), 0, cudaMemcpyDefault, stream[7]));
-	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_fw_expanded, dev_set_fw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[8]));
-	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_bw_expanded, dev_set_bw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[9]));
-	
 	// Primo trimming per eliminare i nodi che, dopo la cancellazione dei nodi non in U,
 	// non avevano più out-degree e in-degree diverso da 0
 	trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, d_stop, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
-
-	cudaStreamSynchronize(stream[1]);
 	
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
@@ -470,35 +470,43 @@ int main(unsigned int argc, char ** argv) {
 		update(num_nodes, d_pivots, d_status, d_write_id_for_pivots, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
     }
 
-	HANDLE_ERROR(cudaFreeAsync(d_write_id_for_pivots, stream[2]));
-	HANDLE_ERROR(cudaFreeAsync(d_stop, stream[3]));
+	HANDLE_ERROR(cudaFreeAsync(d_write_id_for_pivots, stream[0]));
+	HANDLE_ERROR(cudaFreeAsync(d_stop, stream[1]));
 	
 	// Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
 	// Allochiamo is_scc, che alla fine avrà per ogni nodo il pivot della sua SCC se la sua SCC è accettabile, altrimenti -1
-	
-	cudaStreamSynchronize(stream[0]);
-	cudaStreamSynchronize(stream[1]);
 
-	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status);
+	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, 0, stream[6]>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status);
 	
-	HANDLE_ERROR(cudaFreeAsync(d_adjacency_list_transpose, stream[4]));
-	HANDLE_ERROR(cudaFreeAsync(d_adjacency_list, stream[5]));
-	HANDLE_ERROR(cudaFreeAsync(d_nodes_transpose, stream[6]));
-	HANDLE_ERROR(cudaFreeAsync(d_nodes, stream[7]));
+	HANDLE_ERROR(cudaFreeAsync(d_adjacency_list_transpose, stream[2]));
+	HANDLE_ERROR(cudaFreeAsync(d_adjacency_list, stream[3]));
+	HANDLE_ERROR(cudaFreeAsync(d_nodes_transpose, stream[4]));
+	HANDLE_ERROR(cudaFreeAsync(d_nodes, stream[5]));
 	
-	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+	cudaStreamSynchronize(stream[6]);
 
-	//HANDLE_ERROR(cudaFreeAsync(d_pivots, stream[8]));
-	//HANDLE_ERROR(cudaFreeAsync(d_status, stream[9]));
+	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, 0, stream[6]>>>(num_nodes, d_pivots, d_status);
+
+	cudaStreamSynchronize(stream[6]);
 
 	// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
 	// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
 	// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
-	is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
-	
+	is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, 0, stream[6]>>>(num_nodes, d_pivots, d_status);
+
+	cudaFreeHost(h_get_fw_visited);
+	cudaFreeHost(h_get_bw_visited);
+	cudaFreeHost(h_set_fw_visited);
+	cudaFreeHost(h_set_bw_visited);
+
+	cudaFreeHost(h_get_fw_expanded);
+	cudaFreeHost(h_get_bw_expanded);
+	cudaFreeHost(h_set_fw_expanded);
+	cudaFreeHost(h_set_bw_expanded);
+
 	cudaDeviceSynchronize();
 
-	for (unsigned int i=0; i<11; ++i){
+	for (unsigned int i=0; i<CUDA_STREAMS; ++i){
 		cudaStreamDestroy(stream[i]);
 	}
 
