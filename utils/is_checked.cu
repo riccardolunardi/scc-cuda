@@ -39,7 +39,7 @@ __host__ __device__ void set_not_is_d_eliminated(char * value)      { *value &= 
 __host__ __device__ void set_not_is_d_fw_expanded(char * value)     { *value &= 247; }
 __host__ __device__ void set_not_is_d_bw_expanded(char * value)     { *value &= 239; }
 __host__ __device__ void set_not_is_d_u(char * value)               { *value &= 223; }
-__host__ __device__ void set_not_is_d_scc(char & value)             { *value &= 191; }
+__host__ __device__ void set_not_is_d_scc(char * value)             { *value &= 191; }
 
 // Inizializzazione delle variabili che puntano alle funzioni.
 // Da qeusti puntatori l'API riuscirà a risalire al codice della funzione
