@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <iostream>
+#include "../utils/is_checked.cpp"
 using namespace std;
 
 #define DEBUG_CREATE false
@@ -100,9 +101,9 @@ void create_transposed_graph_from_graph(unsigned num_nodes, unsigned num_edges, 
     }
 
     // Parto dall'ultimo nodo e computo la posizione inizale nella lista di adiacenza, procedo a ritroso nel vettore
-    for(unsigned i = num_nodes - 1; i != -1; i--) {
-        max -= nodes_transpose[i];
-        nodes_transpose[i] = max;
+    for(unsigned i = num_nodes; i > 0; i--) {
+        max -= nodes_transpose[i-1];
+        nodes_transpose[i-1] = max;
     }
 
     unsigned pointed_node = 0;
@@ -146,13 +147,9 @@ void create_graph_from_filename(string filename, unsigned & num_nodes, unsigned 
 	memset(status, 68, num_nodes);
 
     // Inizializzazione delle liste 
-	for (unsigned i = 0; i < num_nodes; i++){
-		nodes[i] = 0;
-		nodes_transpose[i] = 0;
-	}
-	for (unsigned i = 0; i < num_edges; i++){
-		adjacency_list[i] = 0;
-	}
+    memset(nodes, 0, num_nodes * sizeof(unsigned));
+    memset(adjacency_list, 0, num_edges * sizeof(unsigned));
+    memset(nodes_transpose, 0, num_nodes * sizeof(unsigned));
 
     create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, status);
 
