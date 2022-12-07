@@ -34,6 +34,8 @@ Questa versione del codice è un miglioramento della versione naive, in quanto s
 - set_colors e set_race_winners sono stati uniti, evitando il lancio di un kernel non essenziale
 - Rimozione dell'array colors: tramite la programmazione parallela possiamo usare una sola variabile
 - Alcune operazioni binarie su "status" sono state unite in una sola (es. 100 | 010 | 001 === 110 | 001 )
+- Utilizzo di unsigned int. Nonostante non vengano migliorate direttamente le performace, c'è la possibilità di poter elaborare un numero più alto di nodi/archi
+  senza dove aumentare lo spazio utilzzato in memoria
 
 N.B.
 - Non è possibile fare uso della memoria shared visto il tipo operazioni eseguite: spesso, ad esempio tramite i pivots, il codice "salta"
@@ -164,7 +166,7 @@ void trimming(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int
 	HANDLE_ERROR(cudaMemset(d_stop, false, sizeof(bool)));
 }
 
-__global__ void set_colors(unsigned int const num_nodes, char * d_status, unsigned int * d_pivots, long * d_write_id_for_pivots, bool * d_stop){
+__global__ void set_colors(unsigned int const num_nodes, char * d_status, unsigned int * d_pivots, unsigned long * d_write_id_for_pivots, bool * d_stop){
 	// Esegue l'update dei valori del pivot facendo una race, scrivendo il "colore" di una serie di pivot in array simultaneamente
 	// @param:	pivots						= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_eliminated				= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
@@ -241,7 +243,7 @@ __global__ void initialize_pivot(unsigned int const num_nodes, unsigned int * d_
 	}
 }
 
-void update(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, long * d_write_id_for_pivots, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
+void update(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, unsigned long * d_write_id_for_pivots, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Esegue l'update dei valori del pivot facendo una race
 	// @param:	pivots			= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_eliminated	= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
@@ -394,7 +396,7 @@ int main(unsigned int argc, char ** argv) {
 	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots;
 	int * d_is_scc;
 	char * d_status;
-	long * d_write_id_for_pivots;
+	unsigned long * d_write_id_for_pivots;
 
 	// Inizializzazione e copia delle funzioni device che verranno passate tramite parametro.
 	// Utilizzando le funzioni in questo modo, anche se apparentemente verboso, permette di ottenere meno codice duplicato:
@@ -425,7 +427,7 @@ int main(unsigned int argc, char ** argv) {
 		cudaStreamSynchronize(stream[i]);
 	}
 	
-	HANDLE_ERROR(cudaMallocAsync((void**)&d_write_id_for_pivots, 4 * num_nodes * sizeof(long), stream[0]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_write_id_for_pivots, 4 * num_nodes * sizeof(unsigned long), stream[0]));
 	HANDLE_ERROR(cudaMallocAsync((void**)&d_pivots, num_nodes * sizeof(unsigned int), stream[1]));
 
 	HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_visited, dev_get_fw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[2]));
