@@ -39,3 +39,9 @@ endif
 else
 	@ nvcc ./cuda/naive.cu -o ./samples/killer
 endif
+
+cuda-compile-all:
+	@ nvcc ./cuda/sccv1_naive.cu -o ./build/sccv1_naive.exe
+	@ nvcc ./cuda/sccv2_status.cu -o ./build/sccv2_status.exe
+	@ nvcc ./cuda/sccv3_streams.cu -o ./build/sccv3_streams.exe
+	@ nvcc ./cuda/sccv4_pinned.cu -o ./build/sccv4_pinned.exe

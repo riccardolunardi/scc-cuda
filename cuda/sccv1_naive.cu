@@ -1,6 +1,6 @@
-#include "../utils.cpp"
 #include <cstring>
 #include <cuda.h>
+#include "../utils/file2graph_naive.cpp"
 using namespace std;
 
 #define DEBUG_F_KERNEL false
@@ -19,6 +19,16 @@ static void handle_error(cudaError_t err, const char *file, int line ) {
 	}
 }
 #define HANDLE_ERROR( err ) (handle_error( err, __FILE__, __LINE__ ))
+
+/*
+
+VERSIONE DEL CODICE CUDA: NAIVE
+
+Questa versione del codice è la prima versione della nostra soluzione. Si tratta di una conversione dal codice seriale del file main.cpp a codice parallelo.
+Le operazioni CUDA, riguardanti memoria ed esecuzioni kernel, sono tutte effettuate sullo stream di default.
+Non vengono fatte ottimizzazioni particolari.
+
+*/
 
 __global__ void f_kernel(int num_nodes, int * d_nodes, int * d_adjacency_list, int * d_pivots, bool * d_is_visited, bool * d_is_eliminated, bool * d_is_expanded, bool * d_stop){
 	// Esecuzione di un thread della chiusura in avanti/indietro
