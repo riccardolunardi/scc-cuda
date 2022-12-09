@@ -65,7 +65,7 @@ __global__ void f_kernel(int num_nodes, int * d_nodes, int * d_adjacency_list, i
 	}
 }
 
-void reach(int num_nodes, int * d_nodes, int * d_adjacency_list, int * d_pivots, bool * d_is_visited, bool * d_is_eliminated, bool * d_is_expanded, const int n_blocks, const int t_per_blocks) {
+void reach(int num_nodes, int * d_nodes, int * d_adjacency_list, int * d_pivots, bool * d_is_visited, bool * d_is_eliminated, bool * d_is_expanded, const int t_per_blocks, const int n_blocks) {
 	// Esecuzione ricorsiva della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_visited		=	Lista che per ogni 'v' dice se è stato visitato dalla reach o meno
@@ -454,7 +454,7 @@ int main(int argc, char ** argv) {
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
+        trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
