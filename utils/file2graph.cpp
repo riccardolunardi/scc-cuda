@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <iostream>
+#include <cstring>
 #include "../utils/is_checked.cpp"
 using namespace std;
 
