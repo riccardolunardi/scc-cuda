@@ -1,3 +1,6 @@
+#ifndef IS_CHECKED_CUDA
+#define IS_CHECKED_CUDA
+
 #include <iostream>
 using namespace std;
  
@@ -52,3 +55,5 @@ __device__ const set_status dev_set_fw_visited = set_is_d_fw_visited;
 __device__ const set_status dev_set_bw_visited = set_is_d_bw_visited;
 __device__ const set_status dev_set_fw_expanded = set_is_d_fw_expanded;
 __device__ const set_status dev_set_bw_expanded = set_is_d_bw_expanded;
+
+#endif

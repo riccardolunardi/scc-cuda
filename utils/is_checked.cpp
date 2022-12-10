@@ -1,3 +1,6 @@
+#ifndef IS_CHECKED_CPP
+#define IS_CHECKED_CPP
+
 #include <iostream>
 using namespace std;
  
@@ -34,3 +37,5 @@ void set_not_is_fw_expanded(char & value)   { value &= 247; }
 void set_not_is_bw_expanded(char & value)   { value &= 239; }
 void set_not_is_u(char & value)             { value &= 223; }
 void set_not_is_scc(char & value)           { value &= 191; }
+
+#endif
