@@ -49,3 +49,24 @@ cuda-compile-all:
 	@ nvcc ./cuda/sccv3_streams.cu -o ./build/sccv3_streams.exe
 	@ nvcc ./cuda/sccv4_pinned.cu -o ./build/sccv4_pinned.exe
 	@ nvcc -Xcompiler /openmp ./cuda/sccv5_openmp.cu -o ./build/sccv5_openmp.exe
+
+cuda-test-all:
+	@ .\build\sccv1_naive.exe .\samples\mid_tests\sample_test_scc_fewu
+	@ .\build\sccv1_naive.exe .\samples\final_tests\sample_test_scc_moreu
+
+	@ .\build\sccv2_status.exe .\samples\mid_tests\sample_test_scc_fewu
+	@ .\build\sccv2_status.exe .\samples\final_tests\sample_test_scc_moreu
+
+	@ .\build\sccv3_streams.exe .\samples\mid_tests\sample_test_scc_fewu
+	@ .\build\sccv3_streams.exe .\samples\final_tests\sample_test_scc_moreu
+
+	@ .\build\sccv4_pinned.exe .\samples\mid_tests\sample_test_scc_fewu
+	@ .\build\sccv4_pinned.exe .\samples\final_tests\sample_test_scc_moreu
+	
+	@ .\build\sccv5_openmp.exe .\samples\mid_tests\sample_test_scc_fewu
+	@ .\build\sccv5_openmp.exe .\samples\final_tests\sample_test_scc_moreu
+
+profile-cpp:
+	@ g++ -std=c++11 -pg -no-pie .\main.cpp -o main_prof.exe
+	@ .\main_prof.exe .\samples\final_tests\sample_test_scc_moreu
+	@ gprof .\main_prof.exe > profiled_cpp.txt
