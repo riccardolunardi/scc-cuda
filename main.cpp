@@ -13,6 +13,9 @@ using namespace std;
 #define DEBUG_MAIN false
 #define DEBUG_FINAL false
 
+#define REPEAT 2
+#define PROFILING true
+
 void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * nodes_transpose, unsigned * adjacency_list, unsigned * adjacency_list_transpose, unsigned * pivots, char * status, bool &stop){
 	// Esegue un solo ciclo di eliminazione dei nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
 	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
@@ -271,16 +274,18 @@ void trim_u_propagation(unsigned num_nodes, unsigned * pivots, char * status) {
 	}
 }
 
-void is_scc_adjust(unsigned num_nodes, unsigned * pivots, char * status) {
-	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
-	// In questa fase la lista ha -1 nei valori dei pivot. Per fixare, i nodi facendi parte di quella SCC
-	// andranno a scrivere nella posizione del pivot, il valore del pivot stesso
-
+void eliminate_trivial_scc(unsigned num_nodes, unsigned * pivots, char * status) {
 	for (unsigned u = 0; u < num_nodes; ++u) {
 		if (pivots[u] == u) {
 			set_not_is_scc(status[u]);
 		}
 	}
+}
+
+void is_scc_adjust(unsigned num_nodes, unsigned * pivots, char * status) {
+	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
+	// In questa fase la lista ha -1 nei valori dei pivot. Per fixare, i nodi facendi parte di quella SCC
+	// andranno a scrivere nella posizione del pivot, il valore del pivot stesso
 
 	for (unsigned u = 0; u < num_nodes; ++u) {
 		if (!get_is_scc(status[u])) {
@@ -289,14 +294,23 @@ void is_scc_adjust(unsigned num_nodes, unsigned * pivots, char * status) {
 	}
 }
 
-void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status) {
+void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
 	// @param:	pivots 	=	Lista che per ogni 'v' dice il valore del pivot della SCC
 	// 			status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
 
 	trim_u_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, status);
 	trim_u_propagation(num_nodes, pivots, status);
-	is_scc_adjust(num_nodes, pivots, status);
+	eliminate_trivial_scc(num_nodes, pivots, status);
+
+	if (PROFILING){
+		is_network_valid = false;
+		for(int i=0;i<num_nodes; i++){
+			is_network_valid |= get_is_scc(status[i]);
+		}
+	}else{
+		is_scc_adjust(num_nodes, pivots, status);
+	}	
 }
 
 unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
@@ -316,6 +330,21 @@ unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
     return s.size();
 }
 
+int routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+    unsigned * pivots;
+	bool is_network_valid;
+
+	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, status);
+	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
+
+	if(PROFILING){
+		cout << is_network_valid << endl;
+	}else{
+		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), true);
+	}
+	return 0;
+}
+
 int main(int argc, char ** argv) {
     if (argc != 2) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
@@ -323,35 +352,18 @@ int main(int argc, char ** argv) {
 	}
 
 	unsigned num_nodes, num_edges;
-    unsigned * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose, * pivots;
+    unsigned * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose;
 	char * status;
 
     create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 
-	for (unsigned i = 0; i < num_nodes; i++) {
-        DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
-	}
-	for (unsigned i = 0; i < num_edges; i++) {
-        DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_MAIN);
-	}
-	for (unsigned i = 0; i < num_nodes; i++) {
-        DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_MAIN);
-	}
-	for (unsigned i = 0; i < num_edges; i++) {
-        DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
+	char * og_status;
+	og_status = (char *) malloc(num_nodes * sizeof(char));
+	memcpy(og_status, status, num_nodes);
+
+	for(int i=0;i<REPEAT;i++){
+		memcpy(status, og_status, num_nodes);
+		routine(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 	}
 
-	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, status);
-
-	for (unsigned i = 0; i < num_nodes; i++) {
-        DEBUG_MSG("pivots[" + to_string(i) + "] = ", pivots[i], DEBUG_MAIN);
-	}
-
-	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status);
-
-	for (unsigned i = 0; i < num_nodes; i++) {
-        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", get_is_scc(status[i]), DEBUG_MAIN);
-	}
-
-	DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), true);
 }
