@@ -1,6 +1,7 @@
+#include "../utils/file2graph_naive.cpp"
+#include "scc_operations.cu"
 #include <cstring>
 #include <cuda.h>
-#include "../utils/file2graph_naive.cpp"
 using namespace std;
 
 #define DEBUG_F_KERNEL false
@@ -11,14 +12,6 @@ using namespace std;
 #define DEBUG_FW_BW false
 #define DEBUG_MAIN false
 #define DEBUG_FINAL true
-
-static void handle_error(cudaError_t err, const char *file, int line ) {
-	if (err != cudaSuccess) {
-		printf( "%s in %s at line %d\n", cudaGetErrorString( err ), file, line );
-		exit( EXIT_FAILURE );
-	}
-}
-#define HANDLE_ERROR( err ) (handle_error( err, __FILE__, __LINE__ ))
 
 /*
 
@@ -290,78 +283,6 @@ __global__ void trim_u_kernel(int num_nodes, int * d_nodes, int * d_adjacency_li
 
 }
 
-__global__ void trim_u_propagation(int num_nodes, int * d_pivots, int * d_is_scc) {
-	// Se alcuni pivot sono settati a -1, per la cancellazione dovuta a collegamenti con nodi u, 
-	// propaga la cancellazione agli altri membri della SCC
-	// param: 	pivots = 	Lista contenente i pivot delle SCC
-	// 			is_scc =	Lista contenente i pivot delle SCC, però i pivot delle SCC 
-	// 						che ricevono archi da nodi u sono settati a -1
-	// @return:	is_scc =	Lista contenente i pivot delle SCC, però i pivot e gli altri nodi delle SCC 
-	// 						che ricevono archi da nodi u sono settati a -1
-
-	int v = threadIdx.x + blockIdx.x * blockDim.x;
-
-	if (v < num_nodes)
-		d_is_scc[v] = d_is_scc[d_pivots[v]];
-}
-
-__global__ void calculate_more_than_one(int num_nodes, int * d_more_than_one_dev, int * is_scc_dev) {
-	// Trova il numero di elementi nella SCC
-	// @param: is_scc =	Lista contenente i pivot delle SCC, però i pivot e gli altri nodi delle SCC 
-	// 					che ricevono archi da nodi u sono settati a -1
-	// @return:	more_than_one = 	Lista che per ogni nodo 'v' dice se questo è un pivot.
-	// 								Se 'v' è pivot: 	more_than_one[v] = numero di elementi nella sua SCC,
-	// 								Se 'v' non è pivot:	more_than_one[v] = 1
-
-	int u = threadIdx.x + blockIdx.x * blockDim.x;
-
-	if (u < num_nodes){
-		if(is_scc_dev[u] != -1){
-			// atomicAdd può essere migliorato -> Simile al problema dell'istogramma
-			atomicAdd(&d_more_than_one_dev[is_scc_dev[u]], 1);
-		}
-	}
-}
-
-__global__ void is_scc_adjust(int num_nodes, int * more_than_one_dev, int * is_scc_dev) {
-	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
-	// @param: more_than_one = 	Lista che per ogni nodo 'v' dice se questo è un pivot.
-	// 							Se 'v' è pivot: 								more_than_one[v] = numero di elementi nella sua SCC,
-	// 							Se 'v' non è pivot, ma fa parte di una SCC:		more_than_one[v] = 0
-	// 							Se 'v' non è pivot e non fa parte di una SCC:	more_than_one[v] = 0
-	// @return: is_scc =	Lista che per ogni nodo 'v' dice se questo fa parte di una SCC.
-	// 						Se fa parte di una SCC: 	is_scc[v] = valore del pivot,
-	// 						Se non fa parte di una SCC:	is_scc[v] = -1
-
-	int v = threadIdx.x + blockIdx.x * blockDim.x;
-
-	if (v < num_nodes){
-		if(more_than_one_dev[v] == 1)
-			is_scc_dev[v] = -1;
-	}
-}
-
-int count_distinct_scc(int is_scc[], int num_nodes){
-	// Restituisce il numero di SCC valide presenti nell'array is_scc
-	// Questa funzione non viene parallelizzata poiché utilizzata solamente per verificare la correttezza del risultato
-	// @param:  is_scc 	= 	Lista contenente le SCC valide trovate
-	// @return: res    	=	Numero di SCC valide diverse
-
-    int res = 0;
- 
-    // Per tutti gli elementi dell'array
-    for (int i = 1; i < num_nodes; i++) {
-        int j = 0;
-        for (j = 0; j < i; j++)
-            if (is_scc[i] == is_scc[j])
-                break;
- 
-        // Se non è già stato contato, contalo
-        if (i == j)
-            res++;
-    }
-    return res;
-}
 
 int main(int argc, char ** argv) {
 	// Impostazione del device
@@ -478,9 +399,9 @@ int main(int argc, char ** argv) {
 	HANDLE_ERROR(cudaMemset(d_more_than_one, 0, num_nodes * sizeof(int)));
 
 	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_is_u, d_is_scc);
-	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_is_scc);
+	trim_u_propagation_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_is_scc);
 	calculate_more_than_one<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
-	is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
+	is_scc_adjust_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
 	
 	HANDLE_ERROR(cudaFree(d_pivots));
 	HANDLE_ERROR(cudaFree(d_is_u));
@@ -497,5 +418,5 @@ int main(int argc, char ** argv) {
 	for (int i = 0; i < num_nodes; i++)
         DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], false);
 
-	DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(is_scc, num_nodes), DEBUG_FINAL);
+	DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), DEBUG_FINAL);
 }
