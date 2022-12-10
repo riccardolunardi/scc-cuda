@@ -184,6 +184,9 @@ void update(unsigned num_nodes, unsigned * pivots, char * status, bool & stop) {
 			pivots[v] = write_id_for_pivots[colors[v]];
 		}
 	}
+
+	free(colors);
+	free(write_id_for_pivots);
 }
 
 void fw_bw(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, unsigned *& pivots, char * status) {
@@ -342,6 +345,8 @@ int routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency
 	}else{
 		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), true);
 	}
+
+	free(pivots);
 	return 0;
 }
 
@@ -366,4 +371,10 @@ int main(int argc, char ** argv) {
 		routine(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 	}
 
+	free(nodes);
+	free(adjacency_list);
+	free(nodes_transpose);
+	free(adjacency_list_transpose);
+	free(status);
+	free(og_status);
 }
