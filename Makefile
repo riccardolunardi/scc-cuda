@@ -70,3 +70,6 @@ profile-cpp:
 	@ g++ -std=c++11 -pg -no-pie .\main.cpp -o main_prof.exe
 	@ .\main_prof.exe .\samples\final_tests\sample_test_scc_moreu
 	@ gprof .\main_prof.exe > profiled_cpp.txt
+
+generate:
+	@ python3 ./gen/generate.py
