@@ -12,12 +12,25 @@ import numpy as np
 
 from statistics import mean
 
-
-CYCLES_TO_CREATE = 12
+# Più grande è il numero di cicli, più grande sarà il grafo creato
+CYCLES_TO_CREATE = 100
 GRAPH_NAME = f"{os.getcwd()}/sample_test"
-RANDOM_ARCS_TO_ADD = 0.999
-N_ARCS_TO_REMOVE = 0
+
+# Costante che aggiunge (RANDOM_ARCS_TO_ADD * numero di nodi) al grafo
+# Più alto è questo valore, meno SCC si creano
+RANDOM_ARCS_TO_ADD = 0.9999
+
+# Numero di archi casuali da rimuovere
+# Più è alto questo valore, più SCC si creano
+N_ARCS_TO_REMOVE = CYCLES_TO_CREATE*0
+
+# Con questo parametro si indica la percentuale di SCC i cui noid saranno sicuramente in U
+P_SCC_BEING_IN_U = 0.50
+
+# Con meno nodi in U si formano più SCC valid
 RATIO_U_NODES_TO_TOTAL_NODES = 18/20
+
+# Più grande è la differenza tra il LOWER_BOUND e l'UPPER_BOUND più SCC si creano
 LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*50/60)
 UPPER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*59/60)
 
@@ -125,7 +138,7 @@ if __name__ == "__main__":
     order_adj.sort(key=operator.itemgetter(0,1))
     
     n_nodes = len(final_graph.nodes)
-    scc_in_u = itertools.chain.from_iterable(random.choices(not_only_one, k=int(0.50*len(not_only_one))))
+    scc_in_u = itertools.chain.from_iterable(random.choices(not_only_one, k=int(P_SCC_BEING_IN_U*len(not_only_one))))
     random_u_nodes = set(random.choices(range(n_nodes),k=int(RATIO_U_NODES_TO_TOTAL_NODES*n_nodes))).union(set(scc_in_u))
 
     sample_text = f"% {len(order_adj)} {len(final_graph.nodes)}\n"
