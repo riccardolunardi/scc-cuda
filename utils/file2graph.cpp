@@ -1,3 +1,6 @@
+#ifndef FILE2GRAPH
+#define FILE2GRAPH
+
 #include <sstream>
 #include <fstream>
 #include <string>
@@ -175,3 +178,5 @@ void create_graph_from_filename(string filename, unsigned & num_nodes, unsigned 
         DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_CREATE);
     }
 }
+
+#endif
