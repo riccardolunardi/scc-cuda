@@ -200,7 +200,7 @@ __global__ void trim_u_kernel(unsigned int const num_nodes, unsigned int * d_nod
 
 }
 
-__global__ void trim_u_propagation(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status) {
+__global__ void trim_u_propagation(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, bool * is_scc) {
 	// Se alcuni pivot sono settati a -1, per la cancellazione dovuta a collegamenti con nodi u, 
 	// propaga la cancellazione agli altri membri della SCC
 	// param: 	pivots = 	Lista contenente i pivot delle SCC
@@ -214,8 +214,10 @@ __global__ void trim_u_propagation(unsigned int const num_nodes, unsigned int * 
 	if (v < num_nodes){
 		if(get_is_d_scc(&d_status[d_pivots[v]])){
 			set_is_d_scc(&d_status[v]);
+			is_scc[v] = true;
 		}else{
 			set_not_is_d_scc(&d_status[v]);
+			is_scc[v] = false;
 		}
 	}
 }
@@ -256,6 +258,29 @@ __global__ void is_scc_adjust(unsigned int const num_nodes, int unsigned * d_piv
 
 		if (!get_is_d_scc(&d_status[v]))
 			set_not_is_d_scc(&d_status[d_pivots[v]]);
+	}
+}
+
+__global__ void eliminate_trivial_scc(unsigned int const t_p_b, unsigned int const num_nodes, int unsigned * d_pivots, bool * d_is_scc) {
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	extern __shared__ bool s_scc_pivots[];
+	bool *s_is_scc = s_scc_pivots;
+	unsigned int *s_pivots = (unsigned int*)&s_scc_pivots[t_p_b];
+
+	if (v < num_nodes){
+		s_is_scc[threadIdx.x] = d_is_scc[v];
+		s_pivots[threadIdx.x] = d_pivots[v];
+
+		__syncthreads();
+
+		if(s_pivots[threadIdx.x] == v)
+			s_is_scc[threadIdx.x] = false;
+
+		__syncthreads();
+
+		d_is_scc[v] = s_is_scc[threadIdx.x];
+		d_pivots[v] = s_pivots[threadIdx.x];
 	}
 }
 
@@ -333,3 +358,105 @@ __global__ void calculate_more_than_one(int num_nodes, int * d_more_than_one_dev
 		}
 	}
 }
+
+__global__ void block_or_reduce(const unsigned int num_nodes, bool * d_is_scc, bool * d_block_sums){
+	extern __shared__ bool sdata[];
+
+	unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+	unsigned int tid = threadIdx.x;
+	
+	sdata[tid] = 0;
+	sdata[tid + blockDim.x] = 0;
+
+	__syncthreads();
+
+	// Copiatura di d_is_scc in shared memory
+	if (i < num_nodes){
+		sdata[threadIdx.x] = d_is_scc[i];
+		// Primo passaggio già fatto qui
+		if (i + blockDim.x < num_nodes)
+			sdata[threadIdx.x + blockDim.x] = d_is_scc[i + blockDim.x];
+	}
+	__syncthreads();
+
+	// Riduzione (vedi esempio Nvidia)
+	for (unsigned int s = blockDim.x; s > 0; s >>= 1) {
+		if (tid < s) {
+			sdata[tid] |= sdata[tid + s];
+		}
+		__syncthreads();
+	}
+
+	// Ogni "capo-blocco" scrive il valore finale nella cella di memoria globale adibita al risultato di quel blocco
+	if (tid == 0)
+		d_block_sums[blockIdx.x] = sdata[0];
+}
+
+bool or_reduce(const unsigned int thread_per_block, const unsigned int num_nodes, bool * d_is_scc){
+	bool final_result = 0;
+
+	// Set up number of threads and blocks
+	// Se l'input non è una potenza di due, il resto dovrà andare per forza in un blocco aggiuntivo separato
+	unsigned int max_elems_per_block = thread_per_block * 2; // al massimo avremmo bisogno del doppio di thread di elementi
+	
+	// La grid size sarebbe il numero di blocchi
+	// In questo caso non è uguale perché abbiamo un numero di elementi per blocco più grande
+	unsigned int grid_size = (num_nodes / max_elems_per_block) + (num_nodes % max_elems_per_block == 0 ? 0 : 1);
+
+	// Allocazione della memoria necessaria a contenere il risultato finale dell'OR per ogni blocco
+	// printf("grid_sz: %d\nnodes: %d\nmax_elems_per_block: %d\n", grid_size, num_nodes, max_elems_per_block);
+	bool* d_risultato_parziale_blocchi;
+	HANDLE_ERROR(cudaMalloc(&d_risultato_parziale_blocchi, sizeof(bool) * grid_size));
+	HANDLE_ERROR(cudaMemset(d_risultato_parziale_blocchi, 0, sizeof(bool) * grid_size));
+
+	// OR per ogni blocco
+	block_or_reduce<<<grid_size, thread_per_block, sizeof(bool) * max_elems_per_block>>>(num_nodes, d_is_scc, d_risultato_parziale_blocchi);
+
+	// Passo finale: se il numero di blocchi da sommare per concludere l'esecuzione è <= 2048, allora si utilzza la funzione di prima, sommando
+	// tutto in una posizione sola
+	// Altrimenti si richiama questa funzione per procedere a ridurre ulteriormente tramite OR
+	if (grid_size <= max_elems_per_block){
+		bool* d_total_sum;
+		HANDLE_ERROR(cudaMalloc(&d_total_sum, sizeof(bool)));
+		HANDLE_ERROR(cudaMemset(d_total_sum, 0, sizeof(bool)));
+		block_or_reduce<<<1, thread_per_block, sizeof(bool) * max_elems_per_block>>>(grid_size, d_risultato_parziale_blocchi, d_total_sum);
+		HANDLE_ERROR(cudaMemcpy(&final_result, d_total_sum, sizeof(bool), cudaMemcpyDeviceToHost));
+		HANDLE_ERROR(cudaFree(d_total_sum));
+	}else{
+		bool* d_in_block_sums;
+		HANDLE_ERROR(cudaMalloc(&d_in_block_sums, sizeof(bool) * grid_size));
+		HANDLE_ERROR(cudaMemcpy(d_in_block_sums, d_risultato_parziale_blocchi, sizeof(bool) * grid_size, cudaMemcpyDeviceToDevice));
+		final_result = or_reduce(thread_per_block, grid_size, d_in_block_sums);
+		HANDLE_ERROR(cudaFree(d_in_block_sums));
+	}
+
+	HANDLE_ERROR(cudaFree(d_risultato_parziale_blocchi));
+	return final_result;
+}
+
+/* __global__ void reduce(unsigned int num_nodes, char *g_idata, bool *g_odata) {
+	extern __shared__ bool sdata[];
+	unsigned int tid = threadIdx.x;
+
+	if (tid < num_nodes){
+		// perform first level of reduction,
+		// reading from global memory, writing to shared memory
+		unsigned int tid = threadIdx.x;
+		unsigned int i = blockIdx.x*(blockDim.x*2) + threadIdx.x;
+		sdata[tid] = get_is_d_scc(&g_idata[i]) || get_is_d_scc(&g_idata[i+blockDim.x]);
+		__syncthreads();
+		
+		// do reduction in shared mem
+		for (unsigned int s=blockDim.x/2; s>0; s>>=1) {
+			//printf("%d < %d\n", tid, s);
+			if (tid < s) {
+				//printf("%d\n", sdata[tid + s]);
+				sdata[tid] |= sdata[tid + s];
+			}
+			__syncthreads();
+		}
+
+		// write result for this block to global mem
+		if (tid == 0) g_odata[blockIdx.x] = sdata[0];
+	}
+} */
