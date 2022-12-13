@@ -13,8 +13,9 @@ using namespace std;
 #define DEBUG_MAIN false
 #define DEBUG_FINAL false
 
-#define REPEAT 2
-#define PROFILING true
+#ifndef PROFILING
+	#define PROFILING true
+#endif
 
 void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * nodes_transpose, unsigned * adjacency_list, unsigned * adjacency_list_transpose, unsigned * pivots, char * status, bool &stop){
 	// Esegue un solo ciclo di eliminazione dei nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
@@ -149,7 +150,6 @@ void update(unsigned num_nodes, unsigned * pivots, char * status, bool & stop) {
 	// they are recursively processed in parallel with the same algorithm
 
 	stop = true;
-	unsigned new_color;
 	for(unsigned v = 0; v < num_nodes; v++) {
 		if(get_is_eliminated(status[v])){
 			pivots[v] = v;
@@ -333,7 +333,7 @@ unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
     return s.size();
 }
 
-int routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
     unsigned * pivots;
 	bool is_network_valid;
 
@@ -347,10 +347,9 @@ int routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency
 	}
 
 	free(pivots);
-	return 0;
 }
 
-int main(int argc, char ** argv) {
+/* int main(int argc, char ** argv) {
     if (argc != 2) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
 		return -1;
@@ -370,11 +369,4 @@ int main(int argc, char ** argv) {
 		memcpy(status, og_status, num_nodes);
 		routine(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 	}
-
-	free(nodes);
-	free(adjacency_list);
-	free(nodes_transpose);
-	free(adjacency_list_transpose);
-	free(status);
-	free(og_status);
-}
+} */
