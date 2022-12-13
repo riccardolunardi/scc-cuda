@@ -210,6 +210,7 @@ void fw_bw(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * 
 	// @return: pivots						=	Lista che per ogni 'v' dice il valore del pivot della SCC. (Le SCC possono contenere 1 solo nodo)
 
     pivots = (unsigned*) malloc(num_nodes * sizeof(unsigned));
+	char * bw_status = (char*) malloc(num_nodes * sizeof(char));
 
 	// Primo trimming per eliminare i nodi che, dopo la cancellazione dei nodi non in U,
 	// non avevano più out-degree e in-degree diverso da 0
@@ -230,13 +231,19 @@ void fw_bw(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * 
 
 	// Si ripete il ciclo fino a quando tutti i nodi vengono eliminati
     while (!stop){
+		memcpy(bw_status, status, num_nodes);
+
 		// Forward reach
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
         reach(num_nodes, num_edges, nodes, adjacency_list, pivots, status, get_is_fw_visited, get_is_fw_expanded, set_is_fw_visited, set_is_fw_expanded);
 
 		// Backward reach
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
-		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, status, get_is_bw_visited, get_is_bw_expanded, set_is_bw_visited, set_is_bw_expanded);
+		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, bw_status, get_is_bw_visited, get_is_bw_expanded, set_is_bw_visited, set_is_bw_expanded);
+
+		for(int i=0; i<num_nodes; i++) {
+			status[i] |= bw_status[i];
+		}
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
