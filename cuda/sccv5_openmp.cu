@@ -3,6 +3,8 @@
 #include "scc_operations.cu"
 #include <cstring>
 #include <cuda.h>
+#include <thrust/device_vector.h>
+#include <thrust/reduce.h>
 #include <omp.h>
 #include <set>
 using namespace std;
@@ -17,6 +19,10 @@ using namespace std;
 #define DEBUG_FINAL true
 
 #define CUDA_STREAMS 7
+
+#ifndef PROFILING
+	#define PROFILING false
+#endif
 
 /*
 
@@ -86,7 +92,7 @@ void update(unsigned int const num_nodes, unsigned int * d_pivots, char * d_stat
 	HANDLE_ERROR(cudaMemset(d_stop, false, sizeof(bool))); */
 }
 
-int main(unsigned int argc, char ** argv) {
+void routine(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
@@ -94,22 +100,12 @@ int main(unsigned int argc, char ** argv) {
 
 	const short MAX_THREADS_OMP = omp_get_max_threads();
 
-    if (argc != 2) {
-		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
-		return -1;
-	}
-
-	unsigned int num_nodes, num_edges;
-	unsigned int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose;
 	bool * d_stop, * stop;
-	char * status;
 
 	// Dichiarazioni di variabili device
 	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots;
 	char * d_status;
 	unsigned long * d_write_id_for_pivots;
-
-    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 
 	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
 	{
@@ -141,7 +137,7 @@ int main(unsigned int argc, char ** argv) {
 	}
 
 	const unsigned int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
-	const unsigned int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
+	const unsigned int NUMBER_OF_BLOCKS = (num_nodes / THREADS_PER_BLOCK) + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
 
 	// Inizializzazione e copia delle funzioni device che verranno passate tramite parametro.
 	// Utilizzando le funzioni in questo modo, anche se apparentemente verboso, permette di ottenere meno codice duplicato:
@@ -269,17 +265,47 @@ int main(unsigned int argc, char ** argv) {
 	// Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
 	// Allochiamo is_scc, che alla fine avrà per ogni nodo il pivot della sua SCC se la sua SCC è accettabile, altrimenti -1
 	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status);
-	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
 
-	// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
-	// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
-	// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
-	is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+	bool * d_is_scc;
+	HANDLE_ERROR(cudaMalloc((void**)&d_is_scc, num_nodes * sizeof(unsigned int)));
+	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status, d_is_scc);
 
-	// Da scommentare una volta finito il progetto
-	//HANDLE_ERROR(cudaFreeAsync(d_pivots, stream[0]));
-	//HANDLE_ERROR(cudaFreeAsync(d_status, stream[1]));
-	
+	if(PROFILING){
+		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
+		cudaDeviceSynchronize();
+		
+		bool result = or_reduce(THREADS_PER_BLOCK, num_nodes, d_is_scc);
+		printf("%d", result);
+	}else{
+		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
+		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
+		// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
+		is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+		cudaDeviceSynchronize();
+
+		// Da scommentare una volta finito il progetto
+		//HANDLE_ERROR(cudaFreeAsync(d_pivots, stream[0]));
+		//HANDLE_ERROR(cudaFreeAsync(d_status, stream[1]));
+
+		// Questa sezione di codice è temporanea, verrà rimossa al momento del test
+		unsigned int * pivots;
+		char * final_status;
+
+		pivots = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
+		final_status = (char*) malloc(num_nodes * sizeof(char));
+
+		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
+		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
+
+		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(num_nodes, pivots, final_status), DEBUG_FINAL);
+
+		HANDLE_ERROR(cudaFree(d_pivots));
+		HANDLE_ERROR(cudaFree(d_status));
+		free(final_status);
+		free(pivots);
+
+	}
+
 	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
 	{	
 		#pragma omp section 
@@ -362,17 +388,5 @@ int main(unsigned int argc, char ** argv) {
 		cudaStreamDestroy(stream[i]);
 	}
 
-	// Questa sezione di codice è temporanea, verrà rimossa al momento del test
-	unsigned int * pivots;
 
-	pivots = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
-	status = (char*) malloc(num_nodes * sizeof(char));
-
-	cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-	cudaMemcpy(status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
-
-	DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(num_nodes, pivots, status), DEBUG_FINAL);
-
-	HANDLE_ERROR(cudaFree(d_pivots));
-	HANDLE_ERROR(cudaFree(d_status));
 }
