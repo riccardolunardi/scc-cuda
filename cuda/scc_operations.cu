@@ -49,6 +49,14 @@ __global__ void f_kernel(unsigned int const num_nodes, unsigned int * d_nodes, u
 	}
 }
 
+__global__ void bitwise_or_kernel(const unsigned int num_nodes, char * d_status_res, char * d_bw_status){
+	int v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if(v < num_nodes){
+		d_status_res[v] |= d_bw_status[v];
+	}
+}
+
 __global__ void trimming_kernel(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_nodes_transpose, unsigned int * d_adjacency_list,  unsigned int * d_adjacency_list_transpose, char * d_status, bool * d_stop){
 	// Esegue un'eliminazione di nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
 	// @param:	is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no
@@ -433,30 +441,3 @@ bool or_reduce(const unsigned int thread_per_block, const unsigned int num_nodes
 	HANDLE_ERROR(cudaFree(d_risultato_parziale_blocchi));
 	return final_result;
 }
-
-/* __global__ void reduce(unsigned int num_nodes, char *g_idata, bool *g_odata) {
-	extern __shared__ bool sdata[];
-	unsigned int tid = threadIdx.x;
-
-	if (tid < num_nodes){
-		// perform first level of reduction,
-		// reading from global memory, writing to shared memory
-		unsigned int tid = threadIdx.x;
-		unsigned int i = blockIdx.x*(blockDim.x*2) + threadIdx.x;
-		sdata[tid] = get_is_d_scc(&g_idata[i]) || get_is_d_scc(&g_idata[i+blockDim.x]);
-		__syncthreads();
-		
-		// do reduction in shared mem
-		for (unsigned int s=blockDim.x/2; s>0; s>>=1) {
-			//printf("%d < %d\n", tid, s);
-			if (tid < s) {
-				//printf("%d\n", sdata[tid + s]);
-				sdata[tid] |= sdata[tid + s];
-			}
-			__syncthreads();
-		}
-
-		// write result for this block to global mem
-		if (tid == 0) g_odata[blockIdx.x] = sdata[0];
-	}
-} */
