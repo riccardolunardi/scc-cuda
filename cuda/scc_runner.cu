@@ -1,8 +1,6 @@
 #include "../utils/file2graph.cpp"
-#include "sccv5_openmp.cu"
+#include "sccv6_optreach.cu"
 using namespace std;
-
-void routine(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status);
 
 int main(unsigned int argc, char ** argv) {
     if (argc < 3) {
