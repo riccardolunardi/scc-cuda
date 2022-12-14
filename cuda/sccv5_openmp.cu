@@ -227,6 +227,7 @@ void routine(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, u
 	// Sincronizzazione implicita perché si utilizza il default stream
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+	HANDLE_ERROR(cudaMemcpy(d_bw_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToDevice));
 
 	// Si ripete il ciclo fino a quando tutti i nodi vengono eliminati
 	*stop = false;
