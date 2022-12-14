@@ -41,7 +41,7 @@ N.B.
 
 */
 
-void reach(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_adjacency_list, unsigned int * d_pivots, char * d_status, bool (*get_visited)(char *), bool (*get_expanded)(char *), void (*set_visited)(char *), void (*set_expanded)(char *),  bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
+void reach_v3(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_adjacency_list, unsigned int * d_pivots, char * d_status, bool (*get_visited)(char *), bool (*get_expanded)(char *), void (*set_visited)(char *), void (*set_expanded)(char *),  bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Esecuzione ricorsiva della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_visited		=	Lista che per ogni 'v' dice se è stato visitato dalla reach o meno
@@ -62,7 +62,7 @@ void reach(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * 
 	HANDLE_ERROR(cudaMemset(d_stop, false, sizeof(bool)));
 }
 
-void trimming(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_nodes_transpose, unsigned int * d_adjacency_list, unsigned int * d_adjacency_list_transpose, char * d_status, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
+void trimming_v3(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_nodes_transpose, unsigned int * d_adjacency_list, unsigned int * d_adjacency_list_transpose, char * d_status, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Elimina iterativamente i nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
 	// @param:	is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no
 	// @return:	is_eliminated	=	Lista che per ogni 'v' dice se il nodo è stato eliminato o no, aggiornata dopo l'esecuzione del trimming
@@ -76,7 +76,7 @@ void trimming(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int
     }
 }
 
-void update(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, unsigned long * d_write_id_for_pivots, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
+void update_v3(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, unsigned long * d_write_id_for_pivots, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Esegue l'update dei valori del pivot facendo una race
 	// @param:	pivots			= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_eliminated	= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
@@ -104,7 +104,7 @@ void update(unsigned int const num_nodes, unsigned int * d_pivots, char * d_stat
 	HANDLE_ERROR(cudaMemset(d_stop, false, sizeof(bool)));
 }
 
-void routine(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
@@ -165,7 +165,7 @@ void routine(const bool profiling, unsigned int num_nodes, unsigned int num_edge
 
 	// Primo trimming per eliminare i nodi che, dopo la cancellazione dei nodi non in U,
 	// non avevano più out-degree e in-degree diverso da 0
-	trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, d_stop, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
+	trimming_v3(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, d_stop, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 	
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
@@ -177,19 +177,19 @@ void routine(const bool profiling, unsigned int num_nodes, unsigned int num_edge
     while (!stop){
 		// Forward reach
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
-        reach(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status, h_get_fw_visited, h_get_fw_expanded, h_set_fw_visited, h_set_fw_expanded, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+        reach_v3(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status, h_get_fw_visited, h_get_fw_expanded, h_set_fw_visited, h_set_fw_expanded, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		
 		// Backward reach
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
-		reach(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_status, h_get_bw_visited, h_get_bw_expanded, h_set_bw_visited, h_set_bw_expanded, d_stop, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
+		reach_v3(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_status, h_get_bw_visited, h_get_bw_expanded, h_set_bw_visited, h_set_bw_expanded, d_stop, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, d_stop, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
+        trimming_v3(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, d_stop, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
-		update(num_nodes, d_pivots, d_status, d_write_id_for_pivots, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		update_v3(num_nodes, d_pivots, d_status, d_write_id_for_pivots, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
     }
 
 	HANDLE_ERROR(cudaFreeAsync(d_write_id_for_pivots, stream[0]));
@@ -216,7 +216,7 @@ void routine(const bool profiling, unsigned int num_nodes, unsigned int num_edge
 		cudaDeviceSynchronize();
 		
 		bool result = is_there_an_scc(NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-		printf("%d", result);
+		printf("%d\n", result);
 	}else{
 		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
 		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.

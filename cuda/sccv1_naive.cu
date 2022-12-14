@@ -388,7 +388,7 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		cudaDeviceSynchronize();
 		
 		bool result = is_there_an_scc(NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, num_nodes, d_is_scc_final);
-		printf("%d", result);
+		printf("%d\n", result);
 
 		HANDLE_ERROR(cudaFree(d_is_scc_final));
 	}else{
