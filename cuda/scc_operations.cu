@@ -1,3 +1,6 @@
+#ifndef SCC_OPERATIONS
+#define SCC_OPERATIONS
+
 #include <cuda.h>
 #include <set>
 #include "../utils/is_checked.cu"
@@ -292,6 +295,14 @@ __global__ void eliminate_trivial_scc(unsigned int const t_p_b, unsigned int con
 	}
 }
 
+__global__ void convert_int_array_to_bool(unsigned int const num_nodes, int * d_is_scc, bool * d_is_scc_final) {
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if (v < num_nodes){
+		d_is_scc_final[v] = d_is_scc[v] != -1;
+	}
+}
+
 __global__ void is_scc_adjust_v1(int num_nodes, int * more_than_one_dev, int * is_scc_dev) {
 	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
 	// @param: more_than_one = 	Lista che per ogni nodo 'v' dice se questo è un pivot.
@@ -441,3 +452,5 @@ bool or_reduce(const unsigned int thread_per_block, const unsigned int num_nodes
 	HANDLE_ERROR(cudaFree(d_risultato_parziale_blocchi));
 	return final_result;
 }
+
+#endif

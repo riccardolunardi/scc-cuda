@@ -286,32 +286,12 @@ __global__ void trim_u_kernel(int num_nodes, int * d_nodes, int * d_adjacency_li
 }
 
 
-int main(int argc, char ** argv) {
+void routine_v2(const bool profiling, int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose, char * status) {
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
 
-    if (argc != 2) {
-		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
-		return -1;
-	}
-
-	int num_nodes, num_edges;
-    int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose, * is_scc;
-	char * status;
-
-    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
-
-	if(DEBUG_MAIN){
-		for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
-		for (int i = 0; i < num_edges; i++)
-			DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_MAIN);
-		for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_MAIN);
-		for (int i = 0; i < num_edges; i++)
-			DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
-	}
+    int * is_scc;
 
 	const int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
 	const int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
@@ -409,19 +389,26 @@ int main(int argc, char ** argv) {
 	
 	trim_u_propagation_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_is_scc);
 
-	HANDLE_ERROR(cudaFree(d_pivots));
+	if(profiling){
+		bool * d_is_scc_final;
+		HANDLE_ERROR(cudaMalloc((void**)&d_is_scc_final, num_nodes * sizeof(bool)));
+		convert_int_array_to_bool<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_scc, d_is_scc_final);
+		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, (unsigned int*)d_pivots, d_is_scc_final);
+		cudaDeviceSynchronize();
+		
+		bool result = or_reduce(THREADS_PER_BLOCK, num_nodes, d_is_scc_final);
+		printf("%d", result);
+		HANDLE_ERROR(cudaFree(d_is_scc_final));
+	}else{
+		calculate_more_than_one<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
+		is_scc_adjust_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
+		HANDLE_ERROR(cudaMemcpy(is_scc, d_is_scc, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
+		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), DEBUG_FINAL);
+	}
 
-	calculate_more_than_one<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
-	is_scc_adjust_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
-	
+	HANDLE_ERROR(cudaFree(d_pivots));
 	HANDLE_ERROR(cudaFree(d_more_than_one));
 	HANDLE_ERROR(cudaFree(d_status));
-
-	HANDLE_ERROR(cudaMemcpy(is_scc, d_is_scc, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaFree(d_is_scc));
 
-	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], false);
-
-	DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), DEBUG_FINAL);
 }

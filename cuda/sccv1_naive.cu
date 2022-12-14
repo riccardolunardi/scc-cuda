@@ -67,19 +67,19 @@ void reach(int num_nodes, int * d_nodes, int * d_adjacency_list, int * d_pivots,
 	// @return 	is_visited		=	Lista che per ogni 'v' dice se è stato visitato dalla reach o meno, aggiornata dopo l'esecuzione del trimming
 	// 			is_expanded		=	Lista che per ogni 'v' dice se sono stato visitati i figli diretti o meno, aggiornata dopo l'esecuzione del trimming
 
-	bool stop, *d_stop;
-	stop = false;
+	bool naive_stop, *d_naive_stop;
+	naive_stop = false;
 
-	HANDLE_ERROR(cudaMalloc((void**)&d_stop, sizeof(bool)));
+	HANDLE_ERROR(cudaMalloc((void**)&d_naive_stop, sizeof(bool)));
 	
     // Si effettua la chiusura in avanti/indietro
-    while(!stop) {
-		HANDLE_ERROR(cudaMemset(d_stop, true, sizeof(bool)));
-        f_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_is_visited, d_is_eliminated, d_is_expanded, d_stop);	
-		HANDLE_ERROR(cudaMemcpy(&stop, d_stop, sizeof(bool), cudaMemcpyDeviceToHost));
+    while(!naive_stop) {
+		HANDLE_ERROR(cudaMemset(d_naive_stop, true, sizeof(bool)));
+        f_kernel<<<n_blocks, t_per_blocks>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_is_visited, d_is_eliminated, d_is_expanded, d_naive_stop);	
+		HANDLE_ERROR(cudaMemcpy(&naive_stop, d_naive_stop, sizeof(bool), cudaMemcpyDeviceToHost));
     }
 	
-	HANDLE_ERROR(cudaFree(d_stop));
+	HANDLE_ERROR(cudaFree(d_naive_stop));
 }
 
 __global__ void trimming_kernel(int num_nodes, int * d_nodes, int * d_nodes_transpose, int * d_adjacency_list,  int * d_adjacency_list_transpose, bool * d_is_eliminated, bool * d_stop){
@@ -283,35 +283,13 @@ __global__ void trim_u_kernel(int num_nodes, int * d_nodes, int * d_adjacency_li
 
 }
 
-
-int main(int argc, char ** argv) {
+void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes, int * adjacency_list, int * nodes_transpose, int * adjacency_list_transpose, bool * is_u){
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
 
-    if (argc != 2) {
-		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
-		return -1;
-	}
-
-	int num_nodes, num_edges;
-    int * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose, * is_scc;
-	bool * is_eliminated, * is_u;
-
-    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, is_u);
-
-	if(DEBUG_MAIN){
-		for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
-		for (int i = 0; i < num_edges; i++)
-			DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_MAIN);
-		for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_MAIN);
-		for (int i = 0; i < num_edges; i++)
-			DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
-		for (int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("is_u[" + to_string(i) + "] = ", is_u[i], DEBUG_MAIN);
-	}
+	int * is_scc;
+	bool * is_eliminated;
 
 	const int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
 	const int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
@@ -400,23 +378,40 @@ int main(int argc, char ** argv) {
 
 	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_is_u, d_is_scc);
 	trim_u_propagation_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_is_scc);
-	calculate_more_than_one<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
-	is_scc_adjust_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
+	
+	if(profiling){
+		bool * d_is_scc_final;
+		HANDLE_ERROR(cudaMalloc((void**)&d_is_scc_final, num_nodes * sizeof(bool)));
+		
+		convert_int_array_to_bool<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_scc, d_is_scc_final);
+		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, (unsigned int*)d_pivots, d_is_scc_final);
+		cudaDeviceSynchronize();
+		
+		bool result = or_reduce(THREADS_PER_BLOCK, num_nodes, d_is_scc_final);
+		printf("%d", result);
+
+		HANDLE_ERROR(cudaFree(d_is_scc_final));
+	}else{
+		calculate_more_than_one<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
+		is_scc_adjust_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
+		
+		HANDLE_ERROR(cudaMemcpy(is_scc, d_is_scc, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
+		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), DEBUG_FINAL);
+	}
 	
 	HANDLE_ERROR(cudaFree(d_pivots));
-	HANDLE_ERROR(cudaFree(d_is_u));
 	HANDLE_ERROR(cudaFree(d_is_eliminated));
 	HANDLE_ERROR(cudaFree(d_more_than_one));
+
 	HANDLE_ERROR(cudaFree(d_nodes));
+	HANDLE_ERROR(cudaFree(d_is_u));
 	HANDLE_ERROR(cudaFree(d_adjacency_list));
 	HANDLE_ERROR(cudaFree(d_nodes_transpose));
 	HANDLE_ERROR(cudaFree(d_adjacency_list_transpose));
-
-	HANDLE_ERROR(cudaMemcpy(is_scc, d_is_scc, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaFree(d_is_scc));
-
-	for (int i = 0; i < num_nodes; i++)
-        DEBUG_MSG("is_scc[" + to_string(i) + "] = ", is_scc[i], false);
-
-	DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), DEBUG_FINAL);
+	HANDLE_ERROR(cudaFree(d_fw_is_visited));
+	HANDLE_ERROR(cudaFree(d_bw_is_visited));
+	HANDLE_ERROR(cudaFree(d_write_id_for_pivots));
+	HANDLE_ERROR(cudaFree(d_colors));
+	
 }

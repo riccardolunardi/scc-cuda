@@ -3,8 +3,6 @@
 #include "scc_operations.cu"
 #include <cstring>
 #include <cuda.h>
-#include <thrust/device_vector.h>
-#include <thrust/reduce.h>
 #include <omp.h>
 #include <set>
 using namespace std;
