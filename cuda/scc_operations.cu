@@ -378,78 +378,26 @@ __global__ void calculate_more_than_one(int num_nodes, int * d_more_than_one_dev
 	}
 }
 
-__global__ void block_or_reduce(const unsigned int num_nodes, bool * d_is_scc, bool * d_block_sums){
-	extern __shared__ bool sdata[];
-
+__global__ void at_least_one_scc(const unsigned int num_nodes, bool * d_is_scc, bool * found){
 	unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
-	unsigned int tid = threadIdx.x;
-	
-	sdata[tid] = 0;
-	sdata[tid + blockDim.x] = 0;
 
-	__syncthreads();
-
-	// Copiatura di d_is_scc in shared memory
 	if (i < num_nodes){
-		sdata[threadIdx.x] = d_is_scc[i];
-		// Primo passaggio già fatto qui
-		if (i + blockDim.x < num_nodes)
-			sdata[threadIdx.x + blockDim.x] = d_is_scc[i + blockDim.x];
-	}
-	__syncthreads();
-
-	// Riduzione (vedi esempio Nvidia)
-	for (unsigned int s = blockDim.x; s > 0; s >>= 1) {
-		if (tid < s) {
-			sdata[tid] |= sdata[tid + s];
+		if (d_is_scc[i] > 0){
+			*found = true;
 		}
-		__syncthreads();
 	}
-
-	// Ogni "capo-blocco" scrive il valore finale nella cella di memoria globale adibita al risultato di quel blocco
-	if (tid == 0)
-		d_block_sums[blockIdx.x] = sdata[0];
 }
 
-bool or_reduce(const unsigned int thread_per_block, const unsigned int num_nodes, bool * d_is_scc){
+bool is_there_an_scc(const unsigned int NUMBER_OF_BLOCKS, const unsigned int thread_per_block, const unsigned int num_nodes, bool * d_is_scc){
 	bool final_result = 0;
+	bool * d_final_result;
 
-	// Set up number of threads and blocks
-	// Se l'input non è una potenza di due, il resto dovrà andare per forza in un blocco aggiuntivo separato
-	unsigned int max_elems_per_block = thread_per_block * 2; // al massimo avremmo bisogno del doppio di thread di elementi
-	
-	// La grid size sarebbe il numero di blocchi
-	// In questo caso non è uguale perché abbiamo un numero di elementi per blocco più grande
-	unsigned int grid_size = (num_nodes / max_elems_per_block) + (num_nodes % max_elems_per_block == 0 ? 0 : 1);
+	HANDLE_ERROR(cudaMalloc(&d_final_result, sizeof(bool)));
+	HANDLE_ERROR(cudaMemset(d_final_result, 0, sizeof(bool)));
+	at_least_one_scc<<<NUMBER_OF_BLOCKS, thread_per_block>>>(num_nodes, d_is_scc, d_final_result);
+	HANDLE_ERROR(cudaMemcpy(&final_result, d_final_result, sizeof(bool), cudaMemcpyDeviceToHost));
+	HANDLE_ERROR(cudaFree(d_final_result));
 
-	// Allocazione della memoria necessaria a contenere il risultato finale dell'OR per ogni blocco
-	// printf("grid_sz: %d\nnodes: %d\nmax_elems_per_block: %d\n", grid_size, num_nodes, max_elems_per_block);
-	bool* d_risultato_parziale_blocchi;
-	HANDLE_ERROR(cudaMalloc(&d_risultato_parziale_blocchi, sizeof(bool) * grid_size));
-	HANDLE_ERROR(cudaMemset(d_risultato_parziale_blocchi, 0, sizeof(bool) * grid_size));
-
-	// OR per ogni blocco
-	block_or_reduce<<<grid_size, thread_per_block, sizeof(bool) * max_elems_per_block>>>(num_nodes, d_is_scc, d_risultato_parziale_blocchi);
-
-	// Passo finale: se il numero di blocchi da sommare per concludere l'esecuzione è <= 2048, allora si utilzza la funzione di prima, sommando
-	// tutto in una posizione sola
-	// Altrimenti si richiama questa funzione per procedere a ridurre ulteriormente tramite OR
-	if (grid_size <= max_elems_per_block){
-		bool* d_total_sum;
-		HANDLE_ERROR(cudaMalloc(&d_total_sum, sizeof(bool)));
-		HANDLE_ERROR(cudaMemset(d_total_sum, 0, sizeof(bool)));
-		block_or_reduce<<<1, thread_per_block, sizeof(bool) * max_elems_per_block>>>(grid_size, d_risultato_parziale_blocchi, d_total_sum);
-		HANDLE_ERROR(cudaMemcpy(&final_result, d_total_sum, sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaFree(d_total_sum));
-	}else{
-		bool* d_in_block_sums;
-		HANDLE_ERROR(cudaMalloc(&d_in_block_sums, sizeof(bool) * grid_size));
-		HANDLE_ERROR(cudaMemcpy(d_in_block_sums, d_risultato_parziale_blocchi, sizeof(bool) * grid_size, cudaMemcpyDeviceToDevice));
-		final_result = or_reduce(thread_per_block, grid_size, d_in_block_sums);
-		HANDLE_ERROR(cudaFree(d_in_block_sums));
-	}
-
-	HANDLE_ERROR(cudaFree(d_risultato_parziale_blocchi));
 	return final_result;
 }
 

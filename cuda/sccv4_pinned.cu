@@ -239,7 +239,7 @@ void routine(const bool profiling, unsigned int num_nodes, unsigned int num_edge
 		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
 		cudaDeviceSynchronize();
 		
-		bool result = or_reduce(THREADS_PER_BLOCK, num_nodes, d_is_scc);
+		bool result = is_there_an_scc(NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, num_nodes, d_is_scc);
 		printf("%d", result);
 	}else{
 		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
