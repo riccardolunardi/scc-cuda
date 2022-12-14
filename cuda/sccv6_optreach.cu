@@ -20,10 +20,6 @@ using namespace std;
 
 #define CUDA_STREAMS 7
 
-#ifndef PROFILING
-	#define PROFILING false
-#endif
-
 /*
 
 VERSIONE DEL CODICE CUDA: SCCv5 - OpenMP
@@ -92,7 +88,7 @@ void update(unsigned int const num_nodes, unsigned int * d_pivots, char * d_stat
 	HANDLE_ERROR(cudaMemset(d_stop, false, sizeof(bool))); */
 }
 
-void routine(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
@@ -302,11 +298,34 @@ void routine(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, u
 	// Allochiamo is_scc, che alla fine avrà per ogni nodo il pivot della sua SCC se la sua SCC è accettabile, altrimenti -1
 	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status);
 
+    #pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
+	{	
+		#pragma omp section 
+		{
+			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list_transpose, stream[1]));
+		}
+
+		#pragma omp section 
+		{
+			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list, stream[2]));
+		}
+
+		#pragma omp section 
+		{
+			HANDLE_ERROR(cudaFreeAsync(d_nodes_transpose, stream[3]));
+		}
+
+		#pragma omp section 
+		{
+			HANDLE_ERROR(cudaFreeAsync(d_nodes, stream[4]));
+		}
+    }
+
 	bool * d_is_scc;
 	HANDLE_ERROR(cudaMalloc((void**)&d_is_scc, num_nodes * sizeof(unsigned int)));
 	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status, d_is_scc);
 
-	if(PROFILING){
+	if(profiling){
 		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
 		cudaDeviceSynchronize();
 		
@@ -341,26 +360,6 @@ void routine(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, u
 
 	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
 	{	
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list_transpose, stream[1]));
-		}
-
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list, stream[2]));
-		}
-
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaFreeAsync(d_nodes_transpose, stream[3]));
-		}
-
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaFreeAsync(d_nodes, stream[4]));
-		}
-
 		#pragma omp section 
 		{
 			cudaFreeHost(h_get_fw_visited);
