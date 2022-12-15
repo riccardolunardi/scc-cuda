@@ -1,3 +1,6 @@
+#ifndef FILE2GRAPH_NOT_UNSIGNED
+#define FILE2GRAPH_NOT_UNSIGNED
+
 #include <sstream>
 #include <fstream>
 #include <string>
@@ -11,7 +14,9 @@ using namespace std;
         std::cout << str << val << std::endl;         	\
 }
 
-void read_heading_numbers(ifstream & infile, int & num_nodes, int & num_edges) {
+//notuns = not unsigned
+// È stato necessario rinominare la funzione con notuns perchè la funzione read_heading_numbers è già stata definita in file2graph.cpp
+void read_heading_numbers_notuns(ifstream & infile, int & num_nodes, int & num_edges) {
 	string line;
     char percentage_sign;
 	getline(infile, line);
@@ -83,7 +88,7 @@ void create_graph_from_header_and_stream(ifstream & infile, int num_nodes, int n
     }
 }
 
-void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose) {
+void create_transposed_graph_from_graph_notuns(int num_nodes, int num_edges, int * nodes, int * adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose) {
     // scorro la lista delle adiacenze e ogni volta che trovo un nodo incremento il suo contatore
     for(int i=0; i < num_edges; i++) {
         ++ nodes_transpose[adjacency_list[i]];
@@ -121,10 +126,10 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, char *& status) {
+int create_graph_from_filename_notuns(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, char *& status) {
     ifstream infile(filename);
 
-    read_heading_numbers(infile, num_nodes, num_edges);
+    read_heading_numbers_notuns(infile, num_nodes, num_edges);
 
 	// Definizione strutture dati principali
 	nodes = (int*) malloc(num_nodes * sizeof(int));
@@ -148,7 +153,7 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 
     create_graph_from_header_and_stream(infile, num_nodes, num_edges, nodes, adjacency_list, status);
 
-    create_transposed_graph_from_graph(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
+    create_transposed_graph_from_graph_notuns(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose);
 
     // si vuole eliminare dalla vista il nodo dummy, tenendo in considerazione che logicamente è presente
     --num_nodes;
@@ -171,3 +176,5 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 
     return 0;
 }
+
+#endif

@@ -73,3 +73,10 @@ profile-cpp:
 
 generate:
 	@ python3 ./gen/generate.py
+
+cuda-compile-test:
+	@ nvcc .\cuda\scc_runner.cu -o ./build/scc.exe
+	@ ./build/scc.exe .\samples\mid_tests\sample_test_scc_fewu 2 0
+	@ ./build/scc.exe .\samples\final_tests\sample_test_scc_fewu 2 0
+	@ ./build/scc.exe .\samples\mid_tests\sample_test_scc_fewu 2 1
+	@ ./build/scc.exe .\samples\final_tests\sample_test_scc_fewu 2 1

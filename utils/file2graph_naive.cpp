@@ -1,3 +1,6 @@
+#ifndef FILE2GRAPH_NAIVE
+#define FILE2GRAPH_NAIVE
+
 #include <sstream>
 #include <fstream>
 #include <string>
@@ -119,7 +122,7 @@ void create_transposed_graph_from_graph(int num_nodes, int num_edges, int * node
     }
 }
 
-int create_graph_from_filename(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, bool *& is_u) {
+int create_graph_from_filename_v1(string filename, int & num_nodes, int & num_edges, int *& nodes, int *& adjacency_list, int *& nodes_transpose, int *& adjacency_list_transpose, bool *& is_u) {
     ifstream infile(filename);
 
     read_heading_numbers(infile, num_nodes, num_edges);
@@ -163,3 +166,5 @@ int create_graph_from_filename(string filename, int & num_nodes, int & num_edges
 
     return 0;
 }
+
+#endif

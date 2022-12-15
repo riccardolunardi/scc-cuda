@@ -2,6 +2,7 @@
 #define IS_CHECKED_CPP
 
 #include <iostream>
+#include <string>
 using namespace std;
  
 // Usiamo un vettore di char
@@ -37,5 +38,17 @@ void set_not_is_fw_expanded(char & value)   { value &= 247; }
 void set_not_is_bw_expanded(char & value)   { value &= 239; }
 void set_not_is_u(char & value)             { value &= 223; }
 void set_not_is_scc(char & value)           { value &= 191; }
+
+string from_status_to_string(char value) {
+    string aiuto;
+    for(int i=7; i>-1; i--) {
+        if(value & (1 << i)) {
+            aiuto.append(to_string(1));
+        } else {
+            aiuto.append(to_string(0));
+        }
+    }
+    return aiuto;
+}
 
 #endif

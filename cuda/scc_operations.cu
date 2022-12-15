@@ -1,3 +1,6 @@
+#ifndef SCC_OPERATIONS
+#define SCC_OPERATIONS
+
 #include <cuda.h>
 #include <set>
 #include "../utils/is_checked.cu"
@@ -46,6 +49,14 @@ __global__ void f_kernel(unsigned int const num_nodes, unsigned int * d_nodes, u
 				}
 			}
 		}
+	}
+}
+
+__global__ void bitwise_or_kernel(const unsigned int num_nodes, char * d_status_res, char * d_bw_status){
+	int v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if(v < num_nodes){
+		d_status_res[v] |= d_bw_status[v];
 	}
 }
 
@@ -200,7 +211,7 @@ __global__ void trim_u_kernel(unsigned int const num_nodes, unsigned int * d_nod
 
 }
 
-__global__ void trim_u_propagation(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status) {
+__global__ void trim_u_propagation(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, bool * is_scc) {
 	// Se alcuni pivot sono settati a -1, per la cancellazione dovuta a collegamenti con nodi u, 
 	// propaga la cancellazione agli altri membri della SCC
 	// param: 	pivots = 	Lista contenente i pivot delle SCC
@@ -214,8 +225,10 @@ __global__ void trim_u_propagation(unsigned int const num_nodes, unsigned int * 
 	if (v < num_nodes){
 		if(get_is_d_scc(&d_status[d_pivots[v]])){
 			set_is_d_scc(&d_status[v]);
+			is_scc[v] = true;
 		}else{
 			set_not_is_d_scc(&d_status[v]);
+			is_scc[v] = false;
 		}
 	}
 }
@@ -256,6 +269,37 @@ __global__ void is_scc_adjust(unsigned int const num_nodes, int unsigned * d_piv
 
 		if (!get_is_d_scc(&d_status[v]))
 			set_not_is_d_scc(&d_status[d_pivots[v]]);
+	}
+}
+
+__global__ void eliminate_trivial_scc(unsigned int const t_p_b, unsigned int const num_nodes, int unsigned * d_pivots, bool * d_is_scc) {
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	extern __shared__ bool s_scc_pivots[];
+	bool *s_is_scc = s_scc_pivots;
+	unsigned int *s_pivots = (unsigned int*)&s_scc_pivots[t_p_b];
+
+	if (v < num_nodes){
+		s_is_scc[threadIdx.x] = d_is_scc[v];
+		s_pivots[threadIdx.x] = d_pivots[v];
+
+		__syncthreads();
+
+		if(s_pivots[threadIdx.x] == v)
+			s_is_scc[threadIdx.x] = false;
+
+		__syncthreads();
+
+		d_is_scc[v] = s_is_scc[threadIdx.x];
+		d_pivots[v] = s_pivots[threadIdx.x];
+	}
+}
+
+__global__ void convert_int_array_to_bool(unsigned int const num_nodes, int * d_is_scc, bool * d_is_scc_final) {
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if (v < num_nodes){
+		d_is_scc_final[v] = d_is_scc[v] != -1;
 	}
 }
 
@@ -333,3 +377,28 @@ __global__ void calculate_more_than_one(int num_nodes, int * d_more_than_one_dev
 		}
 	}
 }
+
+__global__ void at_least_one_scc(const unsigned int num_nodes, bool * d_is_scc, bool * found){
+	unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+
+	if (i < num_nodes){
+		if (d_is_scc[i] > 0){
+			*found = true;
+		}
+	}
+}
+
+bool is_there_an_scc(const unsigned int NUMBER_OF_BLOCKS, const unsigned int thread_per_block, const unsigned int num_nodes, bool * d_is_scc){
+	bool final_result = 0;
+	bool * d_final_result;
+
+	HANDLE_ERROR(cudaMalloc(&d_final_result, sizeof(bool)));
+	HANDLE_ERROR(cudaMemset(d_final_result, 0, sizeof(bool)));
+	at_least_one_scc<<<NUMBER_OF_BLOCKS, thread_per_block>>>(num_nodes, d_is_scc, d_final_result);
+	HANDLE_ERROR(cudaMemcpy(&final_result, d_final_result, sizeof(bool), cudaMemcpyDeviceToHost));
+	HANDLE_ERROR(cudaFree(d_final_result));
+
+	return final_result;
+}
+
+#endif

@@ -145,7 +145,6 @@ void update(unsigned num_nodes, unsigned * pivots, char * status, bool & stop) {
 	// they are recursively processed in parallel with the same algorithm
 
 	stop = true;
-	unsigned new_color;
 	for(unsigned v = 0; v < num_nodes; v++) {
 		if(!get_is_eliminated(status[v])){
 			if(get_is_fw_visited(status[v]) == get_is_bw_visited(status[v]) && get_is_fw_visited(status[v]) == true){
@@ -272,7 +271,7 @@ void eliminate_trivial_scc(unsigned num_nodes, unsigned * pivots, char * status)
 	}
 }
 
-void is_scc_adjust(unsigned num_nodes, unsigned * pivots, char * status) {
+void is_scc_adjust_host(unsigned num_nodes, unsigned * pivots, char * status) {
 	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
 	// In questa fase la lista ha -1 nei valori dei pivot. Per fixare, i nodi facendi parte di quella SCC
 	// andranno a scrivere nella posizione del pivot, il valore del pivot stesso
@@ -299,7 +298,7 @@ void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned *
 			is_network_valid |= get_is_scc(status[i]);
 		}
 	}else{
-		is_scc_adjust(num_nodes, pivots, status);
+		is_scc_adjust_host(num_nodes, pivots, status);
 	}	
 }
 
