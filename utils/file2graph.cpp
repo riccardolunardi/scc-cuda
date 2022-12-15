@@ -145,7 +145,7 @@ void create_graph_from_filename(string filename, unsigned & num_nodes, unsigned 
     status = (char *) malloc(num_nodes * sizeof(char));
     // Li setto tutti a eliminati
     // Quando troverò i nodi di U, setterò gli stessi come non eliminati
-	memset(status, 68, num_nodes);
+	memset(status, 4, num_nodes);
 
     // Inizializzazione delle liste 
     memset(nodes, 0, num_nodes * sizeof(unsigned));
