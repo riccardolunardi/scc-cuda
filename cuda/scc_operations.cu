@@ -41,7 +41,7 @@ __global__ void f_kernel(unsigned int const num_nodes, unsigned int * d_nodes, u
 				char dst_status = d_status[dst];
 
                 // Si controlla se non è stato eliminato E se non è stato visitato E se il colore del nodo che punta corrisponde a quello del nodo puntato
-				if(!get_is_d_eliminated(&dst_status) && !get_visited(&dst_status) && d_pivots[v] == d_pivots[dst]) {
+				if(!get_is_d_eliminated(&dst_status) && !get_visited(&dst_status)) {
                     // Setta il nodo puntato a visitato
 					set_visited(&d_status[dst]);
                     // Permette di continuare il ciclo in reach, perchè si è trovato un altro nodo da visitare
@@ -71,9 +71,7 @@ __global__ void trimming_kernel(unsigned int const num_nodes, unsigned int * d_n
 		if(!get_is_d_eliminated(&d_status[v])){
 			// Se questo valore non verrà cambiato, allora il nodo verrà cancellato
 			bool elim = true;
-
 			bool forward = false;
-			bool backward = false;
 			
 			// Nel caso un nodo abbia entrambi in_degree o out_degree diversi da 0, tra i soli nodi non eliminati, allora non va eliminato
 			unsigned int src = d_nodes[v];
@@ -89,12 +87,9 @@ __global__ void trimming_kernel(unsigned int const num_nodes, unsigned int * d_n
 
 				for(unsigned int u = src; u < dst; u++){
 					if(!get_is_d_eliminated(&d_status[d_adjacency_list_transpose[u]])) {
-						backward = true;
+						elim = false;
 					}
 				}
-			}
-			if(backward) {
-				elim = false;
 			}
 
 			if(elim){
@@ -119,37 +114,47 @@ __global__ void set_colors(unsigned int const num_nodes, char * d_status, unsign
 		unsigned int new_color;
 		char src = d_status[v];
 
-		if(get_is_d_eliminated(&src)){
-			d_pivots[v] = v;
-		}
-
-		unsigned int pivot_node = d_pivots[v];
-		const bool fw_visitated = get_is_d_fw_visited(&src);
-		const bool bw_visitated = get_is_d_bw_visited(&src);
-		
-		if(fw_visitated == bw_visitated && fw_visitated == true){
-			new_color = pivot_node << 2;
-		} else {
-			if(fw_visitated != bw_visitated && fw_visitated == true){
-				new_color = (pivot_node << 2) + 1;
-			}else if(fw_visitated != bw_visitated && fw_visitated == false){
-				new_color = (pivot_node << 2) + 2;
-			}else if(fw_visitated == bw_visitated && fw_visitated == false){
-				new_color = (pivot_node << 2) + 3;				
-			}
-				
-			if(!get_is_d_eliminated(&src)){
+		if(!get_is_d_eliminated(&src)){
+			unsigned int pivot_node = d_pivots[v];
+			const bool fw_visitated = get_is_d_fw_visited(&src);
+			const bool bw_visitated = get_is_d_bw_visited(&src);
+			
+			if(fw_visitated == bw_visitated && fw_visitated == true){
+				new_color = pivot_node << 2;
+			} else {
+				printf("ciaone");
 				*d_stop = false;
-			}
-		}
 
-		d_write_id_for_pivots[new_color] = v;
+				if(fw_visitated != bw_visitated && fw_visitated == true){
+					new_color = (pivot_node << 2) + 1;
+				}else if(fw_visitated != bw_visitated && fw_visitated == false){
+					new_color = (pivot_node << 2) + 2;
+				}else if(fw_visitated == bw_visitated && fw_visitated == false){
+					new_color = (pivot_node << 2) + 3;				
+				}
+			}
+
+			d_write_id_for_pivots[new_color] = v;
+		}
 
 		__syncthreads();
 
 		// Se il nodo è stato eliminato, allora il suo pivot è per forza se stesso
-		d_pivots[v] = d_write_id_for_pivots[new_color];
-		set_is_d_bw_fw_visited(&d_status[d_pivots[v]]);
+		if(get_is_d_eliminated(&src)){
+			if(!get_is_d_scc(&src)){
+				printf("Questo nodo non e' SCC: %d\n", v);
+				d_pivots[v] = v;
+			}
+		}else{
+			d_pivots[v] = d_write_id_for_pivots[new_color];
+			if(new_color % 4 == 0){
+				printf("Setto SCC ed elimino il nodo %d\n", v);
+				set_is_d_eliminated(&d_status[v]);
+				set_is_d_scc(&d_status[v]);
+			}
+		}
+		/*d_pivots[v] = d_write_id_for_pivots[new_color];
+		set_is_d_bw_fw_visited(&d_status[d_pivots[v]]); */
 	}
 }
 

@@ -12,7 +12,7 @@ using namespace std;
 #define DEBUG_TRIMMING_KERNEL false
 #define DEBUG_TRIMMING false
 #define DEBUG_UPDATE false
-#define DEBUG_FW_BW false
+#define DEBUG_FW_BW true
 #define DEBUG_MAIN false
 #define DEBUG_FINAL true
 
@@ -245,18 +245,23 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 			cudaStreamSynchronize(stream[2]);
 		}
 
+		cudaDeviceSynchronize();
 		bitwise_or_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_status, d_bw_status);
-
 		cudaMemcpy(d_bw_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToDevice);
-
-		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
-		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming_v6(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update_v6(num_nodes, d_pivots, d_status, d_write_id_for_pivots, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		cudaDeviceSynchronize();
+		
+		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
+		printf("stop %d	", *stop);
+		if(!*stop){
+			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
+			trimming_v6(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+			cudaDeviceSynchronize();
+		}
+		printf("stop %d	", *stop);
     }
 	
 	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
@@ -330,6 +335,10 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 
 		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
 		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
+
+		for(int i = 0; i < num_nodes; i++){
+			printf("status[%d] = %d, pivot[%d] = %d\n", i, final_status[i], i, pivots[i]);
+		}
 
 		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(num_nodes, pivots, final_status), DEBUG_FINAL);
 
