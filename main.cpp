@@ -11,10 +11,8 @@ using namespace std;
 #define DEBUG_UPDATE false
 #define DEBUG_FW_BW false
 #define DEBUG_MAIN false
-#define DEBUG_FINAL false
 
-#define REPEAT 1
-#define PROFILING false
+#define PRINT_RESULTS 1
 
 void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * nodes_transpose, unsigned * adjacency_list, unsigned * adjacency_list_transpose, unsigned * pivots, char * status, bool &stop){
 	// Esegue un solo ciclo di eliminazione dei nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
@@ -22,24 +20,21 @@ void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, u
 	// 			status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
 	// @return:	status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati, aggiornata dopo l'esecuzione di trimming_kernel
 
-	bool elim, forward, backward;
+	bool elim, forward;
 	for(unsigned v=0; v < num_nodes; v++) {
 		if(!get_is_eliminated(status[v])){
 			elim = true;
 			forward = false;
-			backward = false;
 			
 			// Nel caso un nodo abbia entrambi in_degree o out_degree diversi da 0, tra i soli nodi non eliminati, allora non va eliminato
 			for(unsigned u = nodes[v]; u < nodes[v+1]; u++){
 				if(!get_is_eliminated(status[adjacency_list[u]])) {
-				// if(!get_is_eliminated(status[adjacency_list[u]]) && pivots[v] == pivots[u]) {
 					forward = true;
 				}
 			}
 			if(forward) {
 				for(unsigned u = nodes_transpose[v]; u < nodes_transpose[v+1]; u++){
 					if(!get_is_eliminated(status[adjacency_list_transpose[u]])) {
-					// if(!get_is_eliminated(status[adjacency_list_transpose[u]]) && pivots[v] == pivots[u]) {
 						elim = false;
 					}
 				}
@@ -94,7 +89,6 @@ void reach_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsi
 
                 // Si controlla se non è stato eliminato E se non è stato visitato E se il colore del nodo che punta corrisponde a quello del nodo puntato
 				if(!get_is_eliminated(status[adjacency_list[u]]) && !get_visited(status[adjacency_list[u]])) {
-				// if(!get_is_eliminated(status[adjacency_list[u]]) && !get_visited(status[adjacency_list[u]]) && pivots[v] == pivots[adjacency_list[u]]) {
 					// DEBUG_MSG("			status[" << adjacency_list[u] << "] -> ", "TRUE", DEBUG_F_KERNEL);
                     // Setta il nodo puntato a visitato
 					set_visited(status[adjacency_list[u]]);
@@ -283,7 +277,7 @@ void is_scc_adjust_host(unsigned num_nodes, unsigned * pivots, char * status) {
 	}
 }
 
-void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
+void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
 	// @param:	pivots 	=	Lista che per ogni 'v' dice il valore del pivot della SCC
 	// 			status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
@@ -292,7 +286,7 @@ void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned *
 	trim_u_propagation(num_nodes, pivots, status);
 	eliminate_trivial_scc(num_nodes, pivots, status);
 
-	if (PROFILING){
+	if (profiling){
 		is_network_valid = false;
 		for(int i=0;i<num_nodes; i++){
 			is_network_valid |= get_is_scc(status[i]);
@@ -319,24 +313,24 @@ unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
     return s.size();
 }
 
-int routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+int routine(const bool profiling, int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
     unsigned * pivots;
 	bool is_network_valid;
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, status);
-	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
+	trim_u(profiling, num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
 
-	if(PROFILING){
-		cout << is_network_valid << endl;
+	if(profiling){
+		DEBUG_MSG("", is_network_valid, PRINT_RESULTS);
 	}else{
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), true);
+		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), PRINT_RESULTS);
 	}
 
 	free(pivots);
 	return 0;
 }
 
-int main(int argc, char ** argv) {
+/* int main(int argc, char ** argv) {
     if (argc != 2) {
 		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
 		return -1;
@@ -352,9 +346,9 @@ int main(int argc, char ** argv) {
 	og_status = (char *) malloc(num_nodes * sizeof(char));
 	memcpy(og_status, status, num_nodes);
 
-	for(int i=0;i<REPEAT;i++){
+	for(int i=0;i<1;i++){
 		memcpy(status, og_status, num_nodes);
-		routine(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
+		routine(0, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 	}
 
 	free(nodes);
@@ -363,4 +357,4 @@ int main(int argc, char ** argv) {
 	free(adjacency_list_transpose);
 	free(status);
 	free(og_status);
-}
+} */

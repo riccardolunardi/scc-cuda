@@ -15,7 +15,7 @@ using namespace std;
 #define DEBUG_MAIN false
 #define DEBUG_FINAL true
 
-#define CUDA_STREAMS 7
+#define CUDA_STREAMS 9
 
 /*
 
@@ -74,7 +74,7 @@ void trimming_v4(unsigned int const num_nodes, unsigned int * d_nodes, unsigned 
     }
 }
 
-void update_v4(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, unsigned long * d_write_id_for_pivots, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
+void update_v4(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status,  unsigned int * d_colors, unsigned long * d_write_id_for_pivots, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Esegue l'update dei valori del pivot facendo una race
 	// @param:	pivots			= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_eliminated	= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
@@ -95,7 +95,9 @@ void update_v4(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	
 	// Setto i valori dei pivot che hanno vinto la race
 	// Se sono stati eliminati, allora setta il valore dello stesso nodo 
-	set_colors<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_write_id_for_pivots, d_stop);
+	set_colors<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots, d_stop);
+	cudaDeviceSynchronize();
+	set_new_pivots<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
 	cudaDeviceSynchronize();
 	/* HANDLE_ERROR(cudaMemcpy(main_stop, d_stop, sizeof(bool), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemset(d_stop, false, sizeof(bool))); */
@@ -110,7 +112,7 @@ void routine_v4(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	bool * d_stop, * stop;
 
 	// Dichiarazioni di variabili device
-	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots;
+	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots, * d_colors;
 	char * d_status;
 	unsigned long * d_write_id_for_pivots;
 
@@ -146,6 +148,7 @@ void routine_v4(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	}
 
 	HANDLE_ERROR(cudaMallocAsync((void**)&d_write_id_for_pivots, 4 * num_nodes * sizeof(unsigned long), stream[0]));
+	HANDLE_ERROR(cudaMallocAsync((void**)&d_colors, num_nodes * sizeof(unsigned int), stream[0]));
 
 	HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list, num_edges * sizeof(unsigned int), stream[1]));
 	HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list_transpose, num_edges * sizeof(unsigned int), stream[2]));
@@ -191,6 +194,8 @@ void routine_v4(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	// Sincronizzazione implicita perché si utilizza il default stream
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+	cudaDeviceSynchronize();
+	set_initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
 
 	// Si ripete il ciclo fino a quando tutti i nodi vengono eliminati
 	*stop = false;
@@ -204,28 +209,33 @@ void routine_v4(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		reach_v4(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_status, h_get_bw_visited, h_get_bw_expanded, h_set_bw_visited, h_set_bw_expanded, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
-		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming_v4(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
-
+		//DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
+        //trimming_v4(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
-		update_v4(num_nodes, d_pivots, d_status, d_write_id_for_pivots, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		update_v4(num_nodes, d_pivots, d_status, d_colors, d_write_id_for_pivots, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+
+		if(!*stop){
+			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
+			trimming_v4(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+			*stop = false;
+		}
     }
 
 	cudaFreeHost(stop);
 	cudaFreeHost(d_stop);
 	HANDLE_ERROR(cudaFreeAsync(d_write_id_for_pivots, stream[0]));
+	HANDLE_ERROR(cudaFreeAsync(d_colors, stream[0]));
 	
 	// Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
 	// Allochiamo is_scc, che alla fine avrà per ogni nodo il pivot della sua SCC se la sua SCC è accettabile, altrimenti -1
-
+	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, 0, stream[6]>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status);
 	
 	HANDLE_ERROR(cudaFreeAsync(d_adjacency_list_transpose, stream[1]));
 	HANDLE_ERROR(cudaFreeAsync(d_adjacency_list, stream[2]));
 	HANDLE_ERROR(cudaFreeAsync(d_nodes_transpose, stream[3]));
 	HANDLE_ERROR(cudaFreeAsync(d_nodes, stream[4]));
-	
-	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, 0, stream[6]>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status);
 	
 	cudaStreamSynchronize(stream[6]);
 

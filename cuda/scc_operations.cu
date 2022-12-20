@@ -100,7 +100,7 @@ __global__ void trimming_kernel(unsigned int const num_nodes, unsigned int * d_n
 	}
 }
 
-__global__ void set_colors(unsigned int const num_nodes, char * d_status, unsigned int * d_pivots, unsigned long * d_write_id_for_pivots, bool * d_stop){
+__global__ void set_colors(unsigned int const num_nodes, char * d_status, unsigned int * d_pivots, unsigned int * d_colors, unsigned long * d_write_id_for_pivots, bool * d_stop){
 	// Esegue l'update dei valori del pivot facendo una race, scrivendo il "colore" di una serie di pivot in array simultaneamente
 	// @param:	pivots						= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_eliminated				= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
@@ -122,7 +122,7 @@ __global__ void set_colors(unsigned int const num_nodes, char * d_status, unsign
 			if(fw_visitated == bw_visitated && fw_visitated == true){
 				new_color = pivot_node << 2;
 			} else {
-				printf("ciaone");
+				//printf("Nodo %d ha fw_visitated = %d e bw_visitated = %d\n", v, fw_visitated, bw_visitated);
 				*d_stop = false;
 
 				if(fw_visitated != bw_visitated && fw_visitated == true){
@@ -135,26 +135,58 @@ __global__ void set_colors(unsigned int const num_nodes, char * d_status, unsign
 			}
 
 			d_write_id_for_pivots[new_color] = v;
+			d_colors[v] = new_color;
 		}
 
-		__syncthreads();
+		/* __syncthreads();
 
 		// Se il nodo è stato eliminato, allora il suo pivot è per forza se stesso
 		if(get_is_d_eliminated(&src)){
 			if(!get_is_d_scc(&src)){
-				printf("Questo nodo non e' SCC: %d\n", v);
 				d_pivots[v] = v;
 			}
 		}else{
 			d_pivots[v] = d_write_id_for_pivots[new_color];
+			set_is_d_bw_fw_visited(&d_status[d_pivots[v]]);		
 			if(new_color % 4 == 0){
-				printf("Setto SCC ed elimino il nodo %d\n", v);
 				set_is_d_eliminated(&d_status[v]);
 				set_is_d_scc(&d_status[v]);
 			}
+		} */
+		
+
+	}
+}
+
+__global__ void set_new_pivots(unsigned int const num_nodes, char * d_status, unsigned int * d_pivots, unsigned int * d_colors, unsigned long * d_write_id_for_pivots){
+	// Esegue l'update dei valori del pivot facendo una race, scrivendo il "colore" di una serie di pivot in array simultaneamente
+	// @param:	pivots						= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
+	// 			is_eliminated				= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
+	// 			fw_is_visited				= Lista che per ogni 'v' dice se il nodo è stato visitato con la forward reach partendo dai pivots o no
+	// 			bw_is_visited				= Lista che per ogni 'v' dice se il nodo è stato visitato con la backward reach partendo dai pivots o no
+	// @return: d_write_id_for_pivots		= Lista che conterrà, nelle posizione identificate dai colori appena calcolati, i nuovi pivot da assegnare
+	
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if(v < num_nodes) {
+		char src = d_status[v];
+		const unsigned int new_color = d_colors[v];
+
+		// Se il nodo è stato eliminato, allora il suo pivot è per forza se stesso
+		if(get_is_d_eliminated(&src)){
+			if(!get_is_d_scc(&src)){
+				d_pivots[v] = v;
+			}
+		}else{
+			d_pivots[v] = d_write_id_for_pivots[new_color];
+			set_is_d_bw_fw_visited(&d_status[d_pivots[v]]);		
+			if(new_color % 4 == 0){
+				set_is_d_scc_is_eliminated(&d_status[d_pivots[v]]);
+				set_is_d_scc_is_eliminated(&d_status[v]);
+			}
 		}
-		/*d_pivots[v] = d_write_id_for_pivots[new_color];
-		set_is_d_bw_fw_visited(&d_status[d_pivots[v]]); */
+		
+
 	}
 }
 
@@ -171,19 +203,31 @@ __global__ void initialize_pivot(unsigned int const num_nodes, unsigned int * d_
 	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if(v < num_nodes){
-		__shared__ unsigned int chosen_pivot;
+		//__shared__ unsigned int chosen_pivot;
+		//chosen_pivot = 2000000000;
 
 		if(!get_is_d_eliminated(&d_status[v])){
-			chosen_pivot = v;
+			d_pivots[0] = v;
 		}
+	}
+}
 
-		// Sincronizziamo qui i thread del blocco per inizializzare questi array: lanciare un altro thread
-		// solo per inizializzare gli array potrebbe risultare più pesante che farlo qui
-		__syncthreads();
-		
+__global__ void set_initialize_pivot(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status) {
+	// Sincronizziamo qui i thread del blocco per inizializzare questi array: lanciare un altro thread
+	// solo per inizializzare gli array potrebbe risultare più pesante che farlo qui
+	/* __syncthreads();
 
-		d_pivots[v] = chosen_pivot;
-		set_is_d_bw_fw_visited(&d_status[d_pivots[v]]);
+	if(threadIdx.x == 0){
+		d_pivots[0] = chosen_pivot;
+	} */
+	
+	//__syncthreads();*/
+	
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if(v < num_nodes){
+		d_pivots[v] = d_pivots[0];
+		set_is_d_bw_fw_visited(&d_status[d_pivots[0]]);
 	}
 }
 
@@ -270,8 +314,26 @@ __global__ void is_scc_adjust(unsigned int const num_nodes, int unsigned * d_piv
 		if(d_pivots[v] == v)
 			set_not_is_d_scc(&d_status[v]);
 
-		__syncthreads();
+		/* __syncthreads();
 
+		if (!get_is_d_scc(&d_status[v]))
+			set_not_is_d_scc(&d_status[d_pivots[v]]); */
+	}
+}
+
+__global__ void is_scc_adjust_prop(unsigned int const num_nodes, int unsigned * d_pivots, char * d_status) {
+	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
+	// @param: more_than_one = 	Lista che per ogni nodo 'v' dice se questo è un pivot.
+	// 							Se 'v' è pivot: 								more_than_one[v] = numero di elementi nella sua SCC,
+	// 							Se 'v' non è pivot, ma fa parte di una SCC:		more_than_one[v] = 0
+	// 							Se 'v' non è pivot e non fa parte di una SCC:	more_than_one[v] = 0
+	// @return: is_scc =	Lista che per ogni nodo 'v' dice se questo fa parte di una SCC.
+	// 						Se fa parte di una SCC: 	is_scc[v] = valore del pivot,
+	// 						Se non fa parte di una SCC:	is_scc[v] = -1
+
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if (v < num_nodes){
 		if (!get_is_d_scc(&d_status[v]))
 			set_not_is_d_scc(&d_status[d_pivots[v]]);
 	}
@@ -383,25 +445,21 @@ __global__ void calculate_more_than_one(int num_nodes, int * d_more_than_one_dev
 	}
 }
 
-__global__ void at_least_one_scc(const unsigned int num_nodes, bool * d_is_scc, bool * found){
+__global__ void at_least_one_scc(const unsigned int num_nodes, bool * d_is_scc){
 	unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
 	if (i < num_nodes){
 		if (d_is_scc[i] > 0){
-			*found = true;
+			d_is_scc[0] = true;
 		}
 	}
 }
 
 bool is_there_an_scc(const unsigned int NUMBER_OF_BLOCKS, const unsigned int thread_per_block, const unsigned int num_nodes, bool * d_is_scc){
-	bool final_result = 0;
-	bool * d_final_result;
+	bool final_result = false;
 
-	HANDLE_ERROR(cudaMalloc(&d_final_result, sizeof(bool)));
-	HANDLE_ERROR(cudaMemset(d_final_result, 0, sizeof(bool)));
-	at_least_one_scc<<<NUMBER_OF_BLOCKS, thread_per_block>>>(num_nodes, d_is_scc, d_final_result);
-	HANDLE_ERROR(cudaMemcpy(&final_result, d_final_result, sizeof(bool), cudaMemcpyDeviceToHost));
-	HANDLE_ERROR(cudaFree(d_final_result));
+	at_least_one_scc<<<NUMBER_OF_BLOCKS, thread_per_block>>>(num_nodes, d_is_scc);
+	HANDLE_ERROR(cudaMemcpy(&final_result, (bool*)d_is_scc, sizeof(bool), cudaMemcpyDeviceToHost));
 
 	return final_result;
 }
