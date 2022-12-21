@@ -188,7 +188,7 @@ void fw_bw(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * 
 	// non avevano più out-degree e in-degree diverso da 0
 	trimming(num_nodes, num_edges, nodes, nodes_transpose, adjacency_list, adjacency_list_transpose, pivots, status);
 
-	// Si prende come primo pivot globale, il primo nodo che si riesce a trovare non eliminato 
+	// Si prende come primo pivot globale il primo nodo che si riesce a trovare non eliminato 
 	unsigned v = 0;
 	while(v < num_nodes && get_is_eliminated(status[v])) {
 		++v;
@@ -272,8 +272,6 @@ void is_scc_adjust_host(unsigned num_nodes, unsigned * pivots, char * status) {
 
 void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
-	// @param:	pivots 	=	Lista che per ogni 'v' dice il valore del pivot della SCC
-	// 			status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
 
 	trim_u_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, status);
 	trim_u_propagation(num_nodes, pivots, status);
@@ -281,9 +279,16 @@ void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsign
 
 	if (profiling){
 		is_network_valid = false;
-		for(int i=0;i<num_nodes; i++){
-			is_network_valid |= get_is_scc(status[i]);
+		unsigned i = 0;
+		while(i < num_nodes && !get_is_scc(status[i])) {
+			++i;
 		}
+		if(i < num_nodes) {
+			is_network_valid = true;
+		}
+		// for(int i=0;i<num_nodes; i++){
+		// 	is_network_valid |= get_is_scc(status[i]);
+		// }
 	}else{
 		is_scc_adjust_host(num_nodes, pivots, status);
 	}	
