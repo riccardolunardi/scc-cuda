@@ -16,7 +16,7 @@ using namespace std;
 
 void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * nodes_transpose, unsigned * adjacency_list, unsigned * adjacency_list_transpose, unsigned * pivots, char * status, bool &stop){
 	// Esegue un solo ciclo di eliminazione dei nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
-	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
+	// @param:	pivots	=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
 	// 			status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
 	// @return:	status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati, aggiornata dopo l'esecuzione di trimming_kernel
 
@@ -180,10 +180,9 @@ void update(unsigned num_nodes, unsigned * pivots, char * status, bool & stop) {
 }
 
 void fw_bw(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, unsigned *& pivots, char * status) {
-	// Calcola il Forward-Backward di un grafo
+	// Funzione che esegue l'algoritmo di Forward-Backward per la ricerca delle SCC in un grafo
 
     pivots = (unsigned*) malloc(num_nodes * sizeof(unsigned));
-	char * bw_status = (char*) malloc(num_nodes * sizeof(char));
 
 	// Primo trimming per eliminare i nodi che, dopo la cancellazione dei nodi non in U,
 	// non avevano più out-degree e in-degree diverso da 0
@@ -204,19 +203,13 @@ void fw_bw(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * 
 
 	// Si ripete il ciclo fino a quando tutti i nodi vengono eliminati
     while (!stop){
-		memcpy(bw_status, status, num_nodes);
-
 		// Forward reach
 		DEBUG_MSG("Forward reach:" , "", DEBUG_FW_BW);
         reach(num_nodes, num_edges, nodes, adjacency_list, pivots, status, get_is_fw_visited, get_is_fw_expanded, set_is_fw_visited, set_is_fw_expanded);
 
 		// Backward reach
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
-		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, bw_status, get_is_bw_visited, get_is_bw_expanded, set_is_bw_visited, set_is_bw_expanded);
-
-		for(int i=0; i<num_nodes; i++) {
-			status[i] |= bw_status[i];
-		}
+		reach(num_nodes, num_edges, nodes_transpose, adjacency_list_transpose, pivots, status, get_is_bw_visited, get_is_bw_expanded, set_is_bw_visited, set_is_bw_expanded);
 
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
@@ -313,11 +306,15 @@ unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
     return s.size();
 }
 
-int routine(const bool profiling, int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine(const bool profiling, int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+	// Funzione che printa se sono presenti SCC oppure il numero di SCC trovate
+
     unsigned * pivots;
 	bool is_network_valid;
 
+	// Si esegue l'algoritmo Forward-Backward per la ricerca delle SCC
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, status);
+	// Si trimmano le SCC trovate se ricevono arche dai nodi U
 	trim_u(profiling, num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
 
 	if(profiling){
@@ -327,34 +324,4 @@ int routine(const bool profiling, int num_nodes, int num_edges, unsigned * nodes
 	}
 
 	free(pivots);
-	return 0;
 }
-
-/* int main(int argc, char ** argv) {
-    if (argc != 2) {
-		cout << " Invalid Usage !! Usage is ./main.out <graph_input_file> \n";
-		return -1;
-	}
-
-	unsigned num_nodes, num_edges;
-    unsigned * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose;
-	char * status;
-
-    create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
-
-	char * og_status;
-	og_status = (char *) malloc(num_nodes * sizeof(char));
-	memcpy(og_status, status, num_nodes);
-
-	for(int i=0;i<1;i++){
-		memcpy(status, og_status, num_nodes);
-		routine(0, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
-	}
-
-	free(nodes);
-	free(adjacency_list);
-	free(nodes_transpose);
-	free(adjacency_list_transpose);
-	free(status);
-	free(og_status);
-} */
