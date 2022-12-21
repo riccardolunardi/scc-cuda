@@ -300,6 +300,7 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 
 	const int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
 	const int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
+	const int NUMBER_OF_BLOCKS_VEC_ACC = min(((num_nodes/4 + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK), prop.maxGridSize[1]);
 
 	// Dichiarazioni di variabili device
 	int * d_is_scc, * d_more_than_one, * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots, * d_colors;

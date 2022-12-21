@@ -40,7 +40,7 @@ int main(unsigned int argc, char ** argv) {
     unsigned * nodes, * adjacency_list, * nodes_transpose, * adjacency_list_transpose;
 	char * og_status;
 	
-	printf("Lettura del file %s\n", argv[1]);
+	printf("Lettura del file %s...\n", argv[1]);
 	create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, og_status);
 	
 	// Inizializzazione di struttrure dati per la versione 1

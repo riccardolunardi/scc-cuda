@@ -110,6 +110,7 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 
 	const unsigned int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
 	const unsigned int NUMBER_OF_BLOCKS = (num_nodes / THREADS_PER_BLOCK) + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
+	const unsigned int NUMBER_OF_BLOCKS_VEC_ACC = min(((num_nodes/4 + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK), prop.maxGridSize[1]);
 
 	// Inizializzazione e copia delle funzioni device che verranno passate tramite parametro.
 	// Utilizzando le funzioni in questo modo, anche se apparentemente verboso, permette di ottenere meno codice duplicato:
@@ -264,8 +265,8 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
 	cudaDeviceSynchronize();
-	set_initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
-	
+	set_initialize_pivot<<<NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+
 	/* Print di debug riguardante lo stato dei nodi e i pivot iniziali
 	
 	HANDLE_ERROR(cudaMemcpy(status_tmp, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost));
@@ -321,7 +322,11 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 			printf("pivots[%d] = %d\n", i, pivots_tmp[i]);
 		} */
  		
-		bitwise_or_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_status, d_bw_status);
+		//int threads = 128;
+		//int blocks = (num_nodes/4 + threads-1) / threads;
+		//int blocks = (num_nodes/4 + THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
+				
+		bitwise_or_kernel<<<NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK>>>(num_nodes, d_status, d_bw_status);
 		cudaDeviceSynchronize();
 
 		// Update dei pivot

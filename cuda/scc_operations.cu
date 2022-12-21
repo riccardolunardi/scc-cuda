@@ -14,6 +14,13 @@ static void handle_error(cudaError_t err, const char *file, int line ) {
 }
 #define HANDLE_ERROR( err ) (handle_error( err, __FILE__, __LINE__ ))
 
+inline __host__ __device__ void operator|=(char4 &a, char4 b){
+    a.x |= b.x;
+    a.y |= b.y;
+    a.z |= b.z;
+    a.w |= b.w;
+}
+
 __global__ void f_kernel(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_adjacency_list, unsigned int * d_pivots, char * d_status, bool * d_stop, bool (*get_visited)(char *), bool (*get_expanded)(char *), void (*set_visited)(char *), void (*set_expanded)(char *)){
 	// Esecuzione di un thread della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
@@ -56,7 +63,18 @@ __global__ void bitwise_or_kernel(const unsigned int num_nodes, char * d_status_
 	int v = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if(v < num_nodes){
-		d_status_res[v] |= d_bw_status[v];
+		for(int i = v; i < num_nodes/4; i += blockDim.x * gridDim.x) {
+			reinterpret_cast<char4*>(d_status_res)[v] |= reinterpret_cast<char4*>(d_bw_status)[v];
+		}
+
+		// in only one thread, process final elements (if there are any)
+		int remainder = num_nodes % 4;
+		if (v==num_nodes/4 && remainder!=0) {
+			while(remainder) {
+				int idx = num_nodes - remainder--;
+				d_status_res[v] |= d_bw_status[v];
+			}
+	  }
 	}
 }
 
@@ -215,19 +233,24 @@ __global__ void initialize_pivot(unsigned int const num_nodes, unsigned int * d_
 __global__ void set_initialize_pivot(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status) {
 	// Sincronizziamo qui i thread del blocco per inizializzare questi array: lanciare un altro thread
 	// solo per inizializzare gli array potrebbe risultare più pesante che farlo qui
-	/* __syncthreads();
-
-	if(threadIdx.x == 0){
-		d_pivots[0] = chosen_pivot;
-	} */
-	
-	//__syncthreads();*/
 	
 	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if(v < num_nodes){
-		d_pivots[v] = d_pivots[0];
-		set_is_d_bw_fw_visited(&d_status[d_pivots[0]]);
+		for(int i = v; i < num_nodes/4; i += blockDim.x * gridDim.x) {
+			reinterpret_cast<uint4*>(d_pivots)[v] = make_uint4(d_pivots[0], d_pivots[0], d_pivots[0], d_pivots[0]);
+		}
+
+		// in only one thread, process final elements (if there are any)
+		int remainder = num_nodes % 4;
+		if (v==num_nodes/4 && remainder!=0) {
+			set_is_d_bw_fw_visited(&d_status[d_pivots[v]]);
+			
+			while(remainder) {
+				int idx = num_nodes - remainder--;
+				d_pivots[v] = d_pivots[0];
+			}
+	  	}
 	}
 }
 
@@ -310,14 +333,8 @@ __global__ void is_scc_adjust(unsigned int const num_nodes, int unsigned * d_piv
 	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if (v < num_nodes){
-
 		if(d_pivots[v] == v)
 			set_not_is_d_scc(&d_status[v]);
-
-		/* __syncthreads();
-
-		if (!get_is_d_scc(&d_status[v]))
-			set_not_is_d_scc(&d_status[d_pivots[v]]); */
 	}
 }
 

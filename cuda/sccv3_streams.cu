@@ -138,6 +138,7 @@ void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_e
 
 	const unsigned int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
 	const unsigned int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
+	const unsigned int NUMBER_OF_BLOCKS_VEC_ACC = min(((num_nodes/4 + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK), prop.maxGridSize[1]);
 
 	// Inizializzazione e copia delle funzioni device che verranno passate tramite parametro.
 	// Utilizzando le funzioni in questo modo, anche se apparentemente verboso, permette di ottenere meno codice duplicato:
@@ -193,7 +194,7 @@ void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
 	cudaDeviceSynchronize();
-	set_initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+	set_initialize_pivot<<<NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
 
 	// Si ripete il ciclo fino a quando tutti i nodi vengono eliminati
 	stop = false;
