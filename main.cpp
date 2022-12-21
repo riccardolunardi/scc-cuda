@@ -16,17 +16,17 @@ using namespace std;
 
 void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * nodes_transpose, unsigned * adjacency_list, unsigned * adjacency_list_transpose, unsigned * pivots, char * status, bool &stop){
 	// Esegue un solo ciclo di eliminazione dei nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
-	// @param:	pivots	=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
-	// 			status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
-	// @return:	status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati, aggiornata dopo l'esecuzione di trimming_kernel
 
 	bool elim, forward;
+
+	// Per ogni nodo v
 	for(unsigned v=0; v < num_nodes; v++) {
+		// Se non è stato eliminato
 		if(!get_is_eliminated(status[v])){
 			elim = true;
 			forward = false;
 			
-			// Nel caso un nodo abbia entrambi in_degree o out_degree diversi da 0, tra i soli nodi non eliminati, allora non va eliminato
+			// Se v, contando solo i nodi non eliminati, ha sia in_degree > 0 che out_degree > 0 allora non va eliminato
 			for(unsigned u = nodes[v]; u < nodes[v+1]; u++){
 				if(!get_is_eliminated(status[adjacency_list[u]])) {
 					forward = true;
@@ -50,9 +50,6 @@ void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, u
 
 void trimming(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * nodes_transpose, unsigned * adjacency_list, unsigned * adjacency_list_transpose, unsigned * pivots, char * status) {
 	// Elimina ricorsivamente i nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
-	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
-	// 			status		=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
-	// @return:	status		=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
 
     bool stop = false;
 
@@ -64,35 +61,21 @@ void trimming(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned
 
 void reach_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool &stop, bool (*get_visited)(char), bool (*get_expanded)(char), void (*set_visited)(char &), void (*set_expanded)(char &)){
 	// Esecuzione di un singolo ciclo della chiusura in avanti
-	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
-	// 			status		=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
-	// @return 	status		=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati, aggiornata dopo l'esecuzione del trimming
 
-    // for (unsigned i = 0; i < num_nodes; i++){
-    //     DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_F_KERNEL);
-    // }
-
-	// Per ogni nodo
+	// Per ogni nodo v
 	for(unsigned v=0; v < num_nodes; v++) {
-        // DEBUG_MSG("Checking " << v, "...", DEBUG_F_KERNEL);
-		
-        // Si controlla se non è stato eliminato E è stato eliminato E non è stato espanso
+        // Si controlla se v non è stato eliminato, se è stato visitato e se non è stato espanso
 		if(!get_is_eliminated(status[v]) && get_visited(status[v]) && !get_expanded(status[v])) {
-            // Si segna come espanso
+            // Si segna come espanso, per non ricontrollarlo più nelle prossime iterazioni
 			set_expanded(status[v]);
-			// DEBUG_MSG("	u va da " << nodes[v] << " a ", nodes[v+1], DEBUG_F_KERNEL);
 
-            // Per ogni nodo a cui punta
-			for(unsigned u = nodes[v]; u < nodes[v+1]; u++) {		
-				// DEBUG_MSG("		Nodo " << v << " connesso a nodo ", adjacency_list[u], DEBUG_F_KERNEL);
-				// DEBUG_MSG("		pivots["<<v<<"] == pivots["<<adjacency_list[u]<<"] -> " << pivots[v] << " == ", pivots[adjacency_list[u]], DEBUG_F_KERNEL);
-
-                // Si controlla se non è stato eliminato E se non è stato visitato E se il colore del nodo che punta corrisponde a quello del nodo puntato
+            // Per ogni nodo u a cui punta
+			for(unsigned u = nodes[v]; u < nodes[v+1]; u++) {
+                // Si controlla se u non è stato eliminato e se non è stato visitato
 				if(!get_is_eliminated(status[adjacency_list[u]]) && !get_visited(status[adjacency_list[u]])) {
-					// DEBUG_MSG("			status[" << adjacency_list[u] << "] -> ", "TRUE", DEBUG_F_KERNEL);
-                    // Setta il nodo puntato a visitato
+                    // Setta il nodo u come visitato
 					set_visited(status[adjacency_list[u]]);
-                    // Permette di continuare il ciclo in reach, perchè si è trovato un altro nodo da visitare
+                    // Si è trovato un altro nodo visitato ancora da espandere, quindi continuo il ciclo reach
 					stop = false;
 				}
 			}
@@ -102,16 +85,13 @@ void reach_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsi
 
 void reach(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool (*get_visited)(char), bool (*get_expanded)(char), void (*set_visited)(char &), void (*set_expanded)(char &)) {
 	// Esecuzione ricorsiva della chiusura in avanti
-	// @param:	pivots			=	Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
-	// 			status		=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
-	// @return 	status		=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati, aggiornata dopo l'esecuzione del trimming
 
     // Tutti i pivot vengono segnati come visitati
     for(unsigned i=0; i < num_nodes; i++) {
         set_visited(status[pivots[i]]);
     }
 
-    // si effettua la chiusura in avanti
+    // Si effettua la chiusura in avanti
     bool stop = false;
     while(!stop) {
         stop = true;
@@ -120,54 +100,54 @@ void reach(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * 
 }
 
 void update(unsigned num_nodes, unsigned * pivots, char * status, bool & stop) {
-	// Esegue l'update dei valori del pivot facendo una race
-	// @param:	pivots			= Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC
-	// 			status		= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
-	// @return: pivots			= Lista che, dovrebbe contenere, per ogni 'v' dice il valore del pivot della SCC, aggiornata dopo l'esecuzione di update
+	// Esegue l'update dei valori del pivot, facendo una race
 
+	// Il vettore write_id_for_pivots serve per poter eleggere un pivot per ogni sotto-grafo
     unsigned * write_id_for_pivots = (unsigned*) malloc(4 * num_nodes * sizeof(unsigned));
+	// Il vettore colors serve per poter distinguire i sotto-grafi
 	unsigned * colors = (unsigned*) malloc(num_nodes * sizeof(unsigned));
 
-	// Dai paper:
-	// These subgraphs are 
-	// 		1) the strongly connected component with the pivot;
-	// 		2) the subgraph given by vertices in the forward closure but not in the backward closure; 
-	// 		3) the subgraph given by vertices in the backward closure but not in the forward closure;
-	// 		4) the subgraph given by vertices that are neither in the forward nor in the backward closure.
-	
-	// The subgraphs that do not contain the pivot form three independent instances of the same problem, and therefore, 
-	// they are recursively processed in parallel with the same algorithm
-
 	stop = true;
+
+	// Per ogni nodo v
 	for(unsigned v = 0; v < num_nodes; v++) {
+		// Se non è stato eliminato
 		if(!get_is_eliminated(status[v])){
+			// Se fa parte di una SCC, quindi è stato visitato sia in avanti che all'indietro
 			if(get_is_fw_visited(status[v]) == get_is_bw_visited(status[v]) && get_is_fw_visited(status[v]) == true){
 				colors[v] = 4 * pivots[v];
 			} else {
 				stop = false;
 
+				// Se è stato visitato solo in avanti
 				if(get_is_fw_visited(status[v]) != get_is_bw_visited(status[v]) && get_is_fw_visited(status[v]) == true){
 					colors[v] = 4 * pivots[v] + 1;
+				// Se è stato visitato solo all'indietro
 				}else if(get_is_fw_visited(status[v]) != get_is_bw_visited(status[v]) && get_is_fw_visited(status[v]) == false){
 					colors[v] = 4 * pivots[v] + 2;
+				// Se non è stato visitato né in avanti né all'indietro
 				}else if(get_is_fw_visited(status[v]) == get_is_bw_visited(status[v]) && get_is_fw_visited(status[v]) == false){
 					colors[v] = 4 * pivots[v] + 3;	
 				}
 			}
 
+			// Su questa riga viene effettuata la race
+			// Ogni sotto-grafo avrà come pivot l'ultimo nodo che esegue questa riga
 			write_id_for_pivots[colors[v]] = v;
 		}
 	}
 
 	// Setto i valori dei pivot che hanno vinto la race
-	// Se sono stati eliminati, allora setta il valore dello stesso nodo 
 	for (unsigned v = 0; v < num_nodes; v++) {
 		if(get_is_eliminated(status[v])){
+			// Se sono stati eliminati e non sono una SCC, allora setta il valore del pivot uguale al nodo stesso
 			if(!get_is_scc(status[v])) {
 				pivots[v] = v;
 			}
 		}else{
+			// Se non sono stati eliminati, allora setta il valore del pivot uguale al nodo che ha vinto la race
 			pivots[v] = write_id_for_pivots[colors[v]];
+			// I nodi che fanno parte di una SCC, vengono settati come eliminati e come SCC
 			if(colors[v] % 4 == 0) {
 				set_is_eliminated(status[v]);
 				set_is_scc(status[v]);
@@ -222,12 +202,14 @@ void fw_bw(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * 
 }
 
 void trim_u_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status) {
-	// Setta i pivot delle SCC uguale a -1 se questi ricevono archi da nodi u
-	// param: 	pivots = 	Lista che per ogni 'v' dice il valore del pivot della SCC
+	// Controlla per tutte le SCC se queste ricevono archi da nodi u
+	// Se le trova setta i pivot come non facenti parte di una SCC
 
 	for(unsigned u = 0; u < num_nodes; ++u ) {
 		if(get_is_u(status[u]) == true) {
 			for(unsigned v = nodes[u]; v < nodes[u+1]; ++v) {
+				// Dato un arco (u,v), se u non fa parte della stessa SCC di v e u fa parte di U
+				// Allora setto il pivot della SCC di v come non facente parte di una SCC
 				if(pivots[u] != pivots[adjacency_list[v]]) {
 					set_not_is_scc(status[pivots[adjacency_list[v]]]);
 				}
@@ -237,9 +219,8 @@ void trim_u_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, uns
 }
 
 void trim_u_propagation(unsigned num_nodes, unsigned * pivots, char * status) {
-	// Se alcuni pivot sono settati a -1, per la cancellazione dovuta a collegamenti con nodi u, 
-	// propaga la cancellazione agli altri membri della SCC
-	// param: 	pivots = 	Lista contenente i pivot delle SCC
+	// Se sono presenti pivot non facenti più parte di una SCC, per la cancellazione dovuta a trim_u_kernel, 
+	// propaga la cancellazione agli altri nodi della stessa SCC
 
 	for(unsigned u = 0; u < num_nodes; ++u ) {
 		if(get_is_scc(status[pivots[u]])) {
@@ -251,6 +232,8 @@ void trim_u_propagation(unsigned num_nodes, unsigned * pivots, char * status) {
 }
 
 void eliminate_trivial_scc(unsigned num_nodes, unsigned * pivots, char * status) {
+	// Setta tutti i pivot come non facenti parte di una SCC
+
 	for (unsigned u = 0; u < num_nodes; ++u) {
 		if (pivots[u] == u) {
 			set_not_is_scc(status[u]);
@@ -258,23 +241,16 @@ void eliminate_trivial_scc(unsigned num_nodes, unsigned * pivots, char * status)
 	}
 }
 
-// void is_scc_adjust_host(unsigned num_nodes, unsigned * pivots, char * status) {
-// 	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
-// 	// In questa fase la lista ha -1 nei valori dei pivot. Per fixare, i nodi facendi parte di quella SCC
-// 	// andranno a scrivere nella posizione del pivot, il valore del pivot stesso
-
-// 	for (unsigned u = 0; u < num_nodes; ++u) {
-// 		if (!get_is_scc(status[u])) {
-// 			set_not_is_scc(status[pivots[u]]);
-// 		}
-// 	}
-// }
-
 void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
 
+	// Setta i pivot delle SCC come non facenti parte di una SCC se queste ricevono archi da nodi u
 	trim_u_kernel(num_nodes, num_edges, nodes, adjacency_list, pivots, status);
+	// Si propaga la decisione presa dalla funzione precedente su tutti i nodi delle SCC eliminate
 	trim_u_propagation(num_nodes, pivots, status);
+	// Dato che l'algoritmo Forward-Backward identifica anche i singoli nodi come SCC
+	// Setto tutti i pivot come non facenti parte di una SCC, facendo attenzione a non rieseguire la funzione trim_u_propagation.
+	// Quindi tutte le SCC da 1 nodo saranno eliminate, mentre le SCC con 2 o più nodi verranno ancora considerate tali.
 	eliminate_trivial_scc(num_nodes, pivots, status);
 
 	if (profiling){
@@ -289,10 +265,6 @@ void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsign
 			is_network_valid = true;
 		}
 	}
-	// else{
-
-	// 	is_scc_adjust_host(num_nodes, pivots, status);
-	// }	
 }
 
 unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
@@ -300,6 +272,8 @@ unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
 
 	set<unsigned> s;
 
+	// Aggiungo un elemento al set se fa parte della SCC
+	// set non permette elementi ripetuti, quindi ogni pivot comparirà una volta sola
 	for(int i=0; i<n; i++) {
 		if(get_is_scc(status[i])) {
         	s.insert(pivots[i]);
