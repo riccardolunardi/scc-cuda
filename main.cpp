@@ -258,17 +258,17 @@ void eliminate_trivial_scc(unsigned num_nodes, unsigned * pivots, char * status)
 	}
 }
 
-void is_scc_adjust_host(unsigned num_nodes, unsigned * pivots, char * status) {
-	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
-	// In questa fase la lista ha -1 nei valori dei pivot. Per fixare, i nodi facendi parte di quella SCC
-	// andranno a scrivere nella posizione del pivot, il valore del pivot stesso
+// void is_scc_adjust_host(unsigned num_nodes, unsigned * pivots, char * status) {
+// 	// Restituisce una lista che dice se il nodo 'v' fa parte di una SCC
+// 	// In questa fase la lista ha -1 nei valori dei pivot. Per fixare, i nodi facendi parte di quella SCC
+// 	// andranno a scrivere nella posizione del pivot, il valore del pivot stesso
 
-	for (unsigned u = 0; u < num_nodes; ++u) {
-		if (!get_is_scc(status[u])) {
-			set_not_is_scc(status[pivots[u]]);
-		}
-	}
-}
+// 	for (unsigned u = 0; u < num_nodes; ++u) {
+// 		if (!get_is_scc(status[u])) {
+// 			set_not_is_scc(status[pivots[u]]);
+// 		}
+// 	}
+// }
 
 void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
@@ -280,25 +280,23 @@ void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsign
 	if (profiling){
 		is_network_valid = false;
 		unsigned i = 0;
+		// Al primo nodo SCC che trovo mi fermo
 		while(i < num_nodes && !get_is_scc(status[i])) {
 			++i;
 		}
+		// E se esiste una SCC si setta che la network è valida
 		if(i < num_nodes) {
 			is_network_valid = true;
 		}
-		// for(int i=0;i<num_nodes; i++){
-		// 	is_network_valid |= get_is_scc(status[i]);
-		// }
-	}else{
-		is_scc_adjust_host(num_nodes, pivots, status);
-	}	
+	}
+	// else{
+
+	// 	is_scc_adjust_host(num_nodes, pivots, status);
+	// }	
 }
 
 unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
 	// Conta quanti elementi distinti ci sono in un array
-	// @param:	arr =	Array in cui contare il numero di elementi diverso
-	// 			n 	=	Numero di elementi nell'array
-	// @return:	res =	Numero di elementi diversi nell'array
 
 	set<unsigned> s;
 
