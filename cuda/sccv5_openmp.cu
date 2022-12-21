@@ -16,7 +16,7 @@ using namespace std;
 #define DEBUG_MAIN false
 #define DEBUG_FINAL true
 
-#define CUDA_STREAMS 7
+#define CUDA_STREAMS 9
 
 /*
 
@@ -59,7 +59,7 @@ void trimming_v5(unsigned int const num_nodes, unsigned int * d_nodes, unsigned 
     }
 }
 
-void update_v5(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, unsigned long * d_write_id_for_pivots, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
+void update_v5(unsigned int const num_nodes, unsigned int * d_pivots, char * d_status, unsigned int * d_colors, unsigned long * d_write_id_for_pivots, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Esegue l'update dei valori del pivot facendo una race
 	// @param:	pivots			= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_eliminated	= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
@@ -80,7 +80,9 @@ void update_v5(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	
 	// Setto i valori dei pivot che hanno vinto la race
 	// Se sono stati eliminati, allora setta il valore dello stesso nodo 
-	set_colors<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_write_id_for_pivots, d_stop);
+	set_colors<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots, d_stop);
+	cudaDeviceSynchronize();
+	set_new_pivots<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
 	cudaDeviceSynchronize();
 	/* HANDLE_ERROR(cudaMemcpy(main_stop, d_stop, sizeof(bool), cudaMemcpyDeviceToHost));
 	HANDLE_ERROR(cudaMemset(d_stop, false, sizeof(bool))); */
@@ -97,11 +99,11 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	bool * d_stop, * stop;
 
 	// Dichiarazioni di variabili device
-	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots;
+	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots, * d_colors;
 	char * d_status;
 	unsigned long * d_write_id_for_pivots;
 
-	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
+	#pragma omp parallel sections if(num_nodes>100000) num_threads(MAX_THREADS_OMP)
 	{
 
 		#pragma omp section 
@@ -141,73 +143,129 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 
 	cudaStream_t stream[CUDA_STREAMS];
 
-	#pragma omp parallel shared (stream) num_threads(MAX_THREADS_OMP)
+	// Creazione delle stream, allocazione delle variabili device e copia dei dati
+	#pragma omp parallel if(num_nodes>100000) shared (stream) num_threads(MAX_THREADS_OMP)
 	{
 		#pragma omp for schedule(static)
 		for (short i = 0; i < CUDA_STREAMS; i++) {
 			cudaStreamCreate(&stream[i]);
 		}
-	}
-	
-	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
-	{
 
-		#pragma omp section 
+		#pragma omp barrier
+
+		#pragma omp sections nowait
 		{
-			HANDLE_ERROR(cudaMallocAsync((void**)&d_write_id_for_pivots, 4 * num_nodes * sizeof(unsigned long), stream[0]));
-			HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_visited, dev_get_fw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[0]));
-			HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_bw_visited, dev_get_bw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[5]));
-			HANDLE_ERROR(cudaMallocAsync((void**)&d_pivots, num_nodes * sizeof(unsigned int), stream[5]));
-			HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_fw_expanded, dev_set_fw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[5]));
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_visited, dev_get_fw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[0]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_bw_visited, dev_get_bw_visited, sizeof(get_status), 0, cudaMemcpyDefault, stream[1]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_fw_expanded, dev_set_fw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[2]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_expanded, dev_get_fw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[3]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_bw_expanded, dev_get_bw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[4]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_fw_visited, dev_set_fw_visited, sizeof(set_status), 0, cudaMemcpyDefault, stream[5]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_bw_visited, dev_set_bw_visited, sizeof(set_status), 0, cudaMemcpyDefault, stream[6]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_bw_expanded, dev_set_bw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[7]));
+			}	
 		}
 
-		#pragma omp section
+		//Allocazione delle variabili device
+		#pragma omp sections nowait
 		{
-			HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list, num_edges * sizeof(unsigned int), stream[1]));
-			HANDLE_ERROR(cudaMemcpyAsync(d_adjacency_list, adjacency_list, num_edges * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[1]));
-			HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_fw_expanded, dev_get_fw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[1]));
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMallocAsync((void**)&d_write_id_for_pivots, 4 * num_nodes * sizeof(unsigned long), stream[0]));
+				HANDLE_ERROR(cudaMallocAsync((void**)&d_pivots, num_nodes * sizeof(unsigned int), stream[1]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list, num_edges * sizeof(unsigned int), stream[2]));
+				HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list_transpose, num_edges * sizeof(unsigned int), stream[3]));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMallocAsync((void**)&d_nodes, (num_nodes+1) * sizeof(unsigned int), stream[4]));
+				HANDLE_ERROR(cudaMallocAsync((void**)&d_nodes_transpose, (num_nodes+1) * sizeof(unsigned int), stream[5]));
+			}
+			
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaMallocAsync((void**)&d_status, (num_nodes+1) * sizeof(char), stream[6]));
+				HANDLE_ERROR(cudaMallocAsync((void**)&d_colors, num_nodes * sizeof(unsigned int), stream[8]));
+			}
 		}
 
-		#pragma omp section
-		{
-			HANDLE_ERROR(cudaMallocAsync((void**)&d_adjacency_list_transpose, num_edges * sizeof(unsigned int), stream[2]));
-			HANDLE_ERROR(cudaMemcpyAsync(d_adjacency_list_transpose, adjacency_list_transpose, num_edges * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[2]));
-			HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_get_bw_expanded, dev_get_bw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[2]));
-		}
-
-		#pragma omp section
-		{
-			HANDLE_ERROR(cudaMallocAsync((void**)&d_nodes, (num_nodes+1) * sizeof(unsigned int), stream[3]));
-			HANDLE_ERROR(cudaMemcpyAsync(d_nodes, nodes, (num_nodes+1) * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[3]));
-			HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_fw_visited, dev_set_fw_visited, sizeof(set_status), 0, cudaMemcpyDefault, stream[3]));
-		}
-
-		#pragma omp section
-		{
-			HANDLE_ERROR(cudaMallocAsync((void**)&d_nodes_transpose, (num_nodes+1) * sizeof(unsigned int), stream[4]));
-			HANDLE_ERROR(cudaMemcpyAsync(d_nodes_transpose, nodes_transpose, (num_nodes+1) * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[4]));
-			HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_bw_visited, dev_set_bw_visited, sizeof(set_status), 0, cudaMemcpyDefault, stream[4]));
-		}
-
-		#pragma omp section
-		{
-			HANDLE_ERROR(cudaMallocAsync((void**)&d_status, (num_nodes+1) * sizeof(char), stream[6]));
-			HANDLE_ERROR(cudaMemcpyAsync(d_status, status, (num_nodes+1) * sizeof(char), cudaMemcpyHostToDevice, stream[6]));
-			HANDLE_ERROR(cudaMemcpyFromSymbolAsync(&h_set_bw_expanded, dev_set_bw_expanded, sizeof(get_status), 0, cudaMemcpyDefault, stream[6]));
-		}
+		#pragma omp barrier
 		
+		// Sincronizzazione delle stream
+		#pragma omp for schedule(static)
+		for (short i = 2; i < 7; i++) {
+			cudaStreamSynchronize(stream[i]);
+		}
+
+		#pragma omp barrier
+
+		// cudaMemcpy per archi e nodi
+		#pragma omp sections nowait
+		{
+			#pragma omp section
+			{
+				HANDLE_ERROR(cudaMemcpyAsync(d_adjacency_list, adjacency_list, num_edges * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[2]));				
+			}
+
+			#pragma omp section
+			{	
+				HANDLE_ERROR(cudaMemcpyAsync(d_adjacency_list_transpose, adjacency_list_transpose, num_edges * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[3]));
+			}
+
+			#pragma omp section
+			{
+				HANDLE_ERROR(cudaMemcpyAsync(d_nodes, nodes, (num_nodes+1) * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[4]));				
+			}
+
+			#pragma omp section
+			{
+				HANDLE_ERROR(cudaMemcpyAsync(d_nodes_transpose, nodes_transpose, (num_nodes+1) * sizeof(unsigned int), cudaMemcpyHostToDevice, stream[5]));	
+			} 
+
+			#pragma omp section
+			{
+				HANDLE_ERROR(cudaMemcpyAsync(d_status, status, (num_nodes+1) * sizeof(char), cudaMemcpyHostToDevice, stream[6]));				
+			}
+		}	
 	}
 
 	HANDLE_ERROR(cudaHostAlloc(&stop, sizeof(bool), cudaHostAllocMapped));
 	HANDLE_ERROR(cudaHostGetDevicePointer(&d_stop, stop, 0));
-
-	#pragma omp parallel shared (stream) num_threads(MAX_THREADS_OMP)
-	{
-		#pragma omp for schedule(static)
-		for (short i = 1; i < 7; i++) {
-			cudaStreamSynchronize(stream[i]);
-		}
-	}
 	
 	// Primo trimming per eliminare i nodi che, dopo la cancellazione dei nodi non in U,
 	// non avevano più out-degree e in-degree diverso da 0
@@ -215,12 +273,13 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
     while(!*stop) {
 		*stop = true;
         trimming_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, d_stop);
-
     }
 
 	// Sincronizzazione implicita perché si utilizza il default stream
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+	cudaDeviceSynchronize();
+	set_initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
 
 	// Si ripete il ciclo fino a quando tutti i nodi vengono eliminati
 	*stop = false;
@@ -234,15 +293,21 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		reach_v5(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_status, h_get_bw_visited, h_get_bw_expanded, h_set_bw_visited, h_set_bw_expanded, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
-		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming_v5(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		//DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
+        //trimming_v5(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
-		update_v5(num_nodes, d_pivots, d_status, d_write_id_for_pivots, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		update_v5(num_nodes, d_pivots, d_status, d_colors, d_write_id_for_pivots, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+
+		if(!*stop){
+			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
+			trimming_v5(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+			*stop = false;
+		}
     }
 	
-	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
+	#pragma omp parallel sections if(num_nodes>100000) num_threads(MAX_THREADS_OMP)
 	{
 		#pragma omp section 
 		{
@@ -254,6 +319,38 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		{
 			HANDLE_ERROR(cudaFreeAsync(d_write_id_for_pivots, stream[0]));
 		}
+
+		#pragma omp section 
+		{
+			HANDLE_ERROR(cudaFreeAsync(d_colors, stream[1]));
+		}
+
+		#pragma omp section 
+		{
+			cudaFreeHost(h_get_fw_visited);
+			cudaFreeHost(h_get_bw_visited);
+		}
+
+
+		#pragma omp section 
+		{
+			cudaFreeHost(h_set_fw_visited);
+			cudaFreeHost(h_set_bw_visited);
+		}
+
+
+		#pragma omp section 
+		{
+			cudaFreeHost(h_get_fw_expanded);
+			cudaFreeHost(h_get_bw_expanded);
+		}
+
+		#pragma omp section 
+		{
+			cudaFreeHost(h_set_fw_expanded);
+			cudaFreeHost(h_set_bw_expanded);
+			cudaFreeHost(h_set_bw_expanded);
+		}
 	}
 
 	// Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
@@ -261,31 +358,39 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status);
 
 	bool * d_is_scc;
-	HANDLE_ERROR(cudaMalloc((void**)&d_is_scc, num_nodes * sizeof(unsigned int)));
-	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status, d_is_scc);
-	
-	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
+	#pragma omp parallel sections if(num_nodes>100000) num_threads(MAX_THREADS_OMP)
 	{	
 		#pragma omp section 
 		{
+			HANDLE_ERROR(cudaHostUnregister(adjacency_list_transpose));
 			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list_transpose, stream[1]));
 		}
 
 		#pragma omp section 
 		{
+			HANDLE_ERROR(cudaHostUnregister(adjacency_list));
 			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list, stream[2]));
 		}
 
 		#pragma omp section 
 		{
+			HANDLE_ERROR(cudaHostUnregister(nodes_transpose));
 			HANDLE_ERROR(cudaFreeAsync(d_nodes_transpose, stream[3]));
 		}
 
 		#pragma omp section 
 		{
+			HANDLE_ERROR(cudaHostUnregister(nodes));
 			HANDLE_ERROR(cudaFreeAsync(d_nodes, stream[4]));
 		}
-	}
+
+		#pragma omp section 
+		{
+			HANDLE_ERROR(cudaMalloc((void**)&d_is_scc, num_nodes * sizeof(unsigned int)));
+		}
+    }
+
+	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status, d_is_scc);
 
 	if(profiling){
 		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
@@ -316,73 +421,41 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 
 		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(num_nodes, pivots, final_status), DEBUG_FINAL);
 
-		HANDLE_ERROR(cudaFree(d_pivots));
-		HANDLE_ERROR(cudaFree(d_status));
 		free(final_status);
 		free(pivots);
 	}
 
-	#pragma omp parallel sections if(num_nodes>1000000) num_threads(MAX_THREADS_OMP)
-	{	
-		#pragma omp section 
+	#pragma omp parallel if(num_nodes>10000) num_threads(MAX_THREADS_OMP)
+	{
+		#pragma omp sections nowait
 		{
-			cudaFreeHost(h_get_fw_visited);
-			cudaFreeHost(h_get_bw_visited);
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaFree(d_is_scc));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaFree(d_status));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaFree(d_pivots));
+			}
+
+			#pragma omp section 
+			{
+				HANDLE_ERROR(cudaHostUnregister(status));
+			}
 		}
 
+		#pragma omp barrier
 
-		#pragma omp section 
-		{
-			cudaFreeHost(h_set_fw_visited);
-			cudaFreeHost(h_set_bw_visited);
+		#pragma omp for schedule(static)
+		for (short i = 0; i < CUDA_STREAMS; i++) {
+			cudaStreamDestroy(stream[i]);
 		}
-
-
-		#pragma omp section 
-		{
-			cudaFreeHost(h_get_fw_expanded);
-			cudaFreeHost(h_get_bw_expanded);
-		}
-
-		#pragma omp section 
-		{
-			cudaFreeHost(h_set_fw_expanded);
-			cudaFreeHost(h_set_bw_expanded);
-			cudaFreeHost(h_set_bw_expanded);
-		}
-
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaHostUnregister(nodes));
-		}
-
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaHostUnregister(nodes_transpose));
-		}
-
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaHostUnregister(adjacency_list));
-		}
-
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaHostUnregister(adjacency_list_transpose));
-		}
-
-		#pragma omp section 
-		{
-			HANDLE_ERROR(cudaHostUnregister(status));
-		}
-
 	}
-
-	cudaDeviceSynchronize();
-
-	for (unsigned int i=0; i<CUDA_STREAMS; ++i){
-		cudaStreamDestroy(stream[i]);
-	}
-
 
 }

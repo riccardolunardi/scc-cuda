@@ -13,6 +13,9 @@ using namespace std;
 #define DEBUG_MAIN false
 #define DEBUG_FINAL true
 
+#define PRINT_RESULTS 1
+
+
 /*
 
 VERSIONE DEL CODICE CUDA: NAIVE
@@ -197,7 +200,7 @@ __global__ void set_race_winners(int num_nodes, bool * d_is_eliminated, int * d_
 	}
 }
 
-__global__ void initialize_pivot(int num_nodes, bool * d_is_eliminated, int * d_pivots, bool * d_fw_is_visited, bool * d_bw_is_visited) {
+__global__ void initialize_pivot_v1(unsigned int const num_nodes, int * d_pivots, bool * d_is_eliminated) {
 	// Scelta iniziale del primo pivot, basandosi sui nodi cancellati inizialmente
 	// @param:	pivots			= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
 	// 			is_eliminated	= Lista che per ogni 'v' dice se il nodo è stato eliminato o no
@@ -207,22 +210,26 @@ __global__ void initialize_pivot(int num_nodes, bool * d_is_eliminated, int * d_
 	//          fw_is_visited	= Lista che per ogni 'v' dice se il nodo è stato visitato con la forward reach partendo dai pivots o no. A questo punto l'unico nodo visitato è il solo pivot scelto
 	//          bw_is_visited	= Lista che per ogni 'v' dice se il nodo è stato visitato con la backward reach partendo dai pivots o no. A questo punto l'unico nodo visitato è il solo pivot scelto
 
-	
-	int v = threadIdx.x + blockIdx.x * blockDim.x;
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if(v < num_nodes){
-		__shared__ int chosen_pivot;
+
 		if(!d_is_eliminated[v]){
-			chosen_pivot = v;
+			d_pivots[0] = v;
 		}
+	}
+}
 
-		// Sincronizziamo qui i thread per inizializzare questi array: lanciare un altro thread
-		// solo per inizializzare gli array potrebbe risultare più pesante che farlo qui
-		__syncthreads();
+__global__ void set_initialize_pivot_v1(unsigned int const num_nodes, int * d_pivots, bool * d_fw_is_visited, bool * d_bw_is_visited) {
+	// Sincronizziamo qui i thread del blocco per inizializzare questi array: lanciare un altro thread
+	// solo per inizializzare gli array potrebbe risultare più pesante che farlo qui
+	
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
 
-		d_pivots[v] = chosen_pivot;
-		d_fw_is_visited[d_pivots[v]] = true;
-		d_bw_is_visited[d_pivots[v]] = true;
+	if(v < num_nodes){
+		d_pivots[v] = d_pivots[0];
+		d_fw_is_visited[d_pivots[0]] = true;
+		d_bw_is_visited[d_pivots[0]] = true;
 	}
 }
 
@@ -337,7 +344,10 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 	trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, THREADS_PER_BLOCK, NUMBER_OF_BLOCKS);
 	
 	// Si fanno competere i thread per scelgliere un nodo che farà da pivot, a patto che quest'ultimo sia non eliminato
-	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_eliminated, d_pivots, d_fw_is_visited, d_bw_is_visited);
+	initialize_pivot_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_is_eliminated);
+	cudaDeviceSynchronize();
+	set_initialize_pivot_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_fw_is_visited, d_bw_is_visited);
+
 	
     bool stop = false;
 	
@@ -352,12 +362,18 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		reach(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_bw_is_visited, d_is_eliminated, d_bw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
-		DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		//DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
+        //trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update(num_nodes, d_pivots, d_fw_is_visited, d_bw_is_visited, d_is_eliminated, d_write_id_for_pivots, d_colors, &stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+
+		if(!stop){
+			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
+			trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+			stop = false;
+		}
     }
 	
 	// Tramite fw_bw_ abbiamo ottenuto, per ogni nodo, il pivot della SCC a cui appartiene.
@@ -388,7 +404,7 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		cudaDeviceSynchronize();
 		
 		bool result = is_there_an_scc(NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, num_nodes, d_is_scc_final);
-		printf("%d\n", result);
+		DEBUG_MSG("", result, PRINT_RESULTS);
 
 		HANDLE_ERROR(cudaFree(d_is_scc_final));
 	}else{
@@ -396,7 +412,7 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		is_scc_adjust_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
 		
 		HANDLE_ERROR(cudaMemcpy(is_scc, d_is_scc, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), DEBUG_FINAL);
+		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), PRINT_RESULTS);
 	}
 	
 	HANDLE_ERROR(cudaFree(d_pivots));

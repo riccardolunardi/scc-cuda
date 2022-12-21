@@ -27,22 +27,23 @@ __host__ __device__ bool get_is_d_bw_expanded(char * value) { return *value & 16
 __host__ __device__ bool get_is_d_u(char * value)           { return *value & 32; }
 __host__ __device__ bool get_is_d_scc(char * value)         { return *value & 64; }
 
-__host__ __device__ void set_is_d_fw_visited(char * value)      { *value |= 1; }
-__host__ __device__ void set_is_d_bw_visited(char * value)      { *value |= 2; }
-__host__ __device__ void set_is_d_bw_fw_visited(char * value)   { *value |= 3; }
-__host__ __device__ void set_is_d_eliminated(char * value)      { *value |= 4; }
-__host__ __device__ void set_is_d_fw_expanded(char * value)     { *value |= 8; }
-__host__ __device__ void set_is_d_bw_expanded(char * value)     { *value |= 16; }
-__host__ __device__ void set_is_d_u(char * value)               { *value |= 32; }
-__host__ __device__ void set_is_d_scc(char * value)             { *value |= 64; }
+__host__ __device__ void set_is_d_fw_visited(char * value)        { *value |= 1; }
+__host__ __device__ void set_is_d_bw_visited(char * value)        { *value |= 2; }
+__host__ __device__ void set_is_d_bw_fw_visited(char * value)     { *value |= 3; }
+__host__ __device__ void set_is_d_eliminated(char * value)        { *value |= 4; }
+__host__ __device__ void set_is_d_fw_expanded(char * value)       { *value |= 8; }
+__host__ __device__ void set_is_d_bw_expanded(char * value)       { *value |= 16; }
+__host__ __device__ void set_is_d_u(char * value)                 { *value |= 32; }
+__host__ __device__ void set_is_d_scc(char * value)               { *value |= 64; }
+__host__ __device__ void set_is_d_scc_is_eliminated(char * value) { *value |= 68; }
 
-__host__ __device__ void set_not_is_d_fw_visited(char * value)      { *value &= 254; }
-__host__ __device__ void set_not_is_d_bw_visited(char * value)      { *value &= 253; }
-__host__ __device__ void set_not_is_d_eliminated(char * value)      { *value &= 251; }
-__host__ __device__ void set_not_is_d_fw_expanded(char * value)     { *value &= 247; }
-__host__ __device__ void set_not_is_d_bw_expanded(char * value)     { *value &= 239; }
-__host__ __device__ void set_not_is_d_u(char * value)               { *value &= 223; }
-__host__ __device__ void set_not_is_d_scc(char * value)             { *value &= 191; }
+__host__ __device__ void set_not_is_d_fw_visited(char * value)    { *value &= 254; }
+__host__ __device__ void set_not_is_d_bw_visited(char * value)    { *value &= 253; }
+__host__ __device__ void set_not_is_d_eliminated(char * value)    { *value &= 251; }
+__host__ __device__ void set_not_is_d_fw_expanded(char * value)   { *value &= 247; }
+__host__ __device__ void set_not_is_d_bw_expanded(char * value)   { *value &= 239; }
+__host__ __device__ void set_not_is_d_u(char * value)             { *value &= 223; }
+__host__ __device__ void set_not_is_d_scc(char * value)           { *value &= 191; }
 
 // Inizializzazione delle variabili che puntano alle funzioni.
 // Da qeusti puntatori l'API riuscirà a risalire al codice della funzione
