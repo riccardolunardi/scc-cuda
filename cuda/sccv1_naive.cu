@@ -404,7 +404,7 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, (unsigned int*)d_pivots, d_is_scc_final);
 		cudaDeviceSynchronize();
 		
-		bool result = is_there_an_scc(NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, num_nodes, d_is_scc_final);
+		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc_final);
 		DEBUG_MSG("", result, PRINT_RESULTS);
 
 		HANDLE_ERROR(cudaFree(d_is_scc_final));
