@@ -8,18 +8,22 @@
 #include <chrono>
 using namespace std;
 
+#define WARMUP 3
+
 void common_routine(void (*routine_runner)(const bool, unsigned int, unsigned int, unsigned int*, unsigned int*, unsigned int*, unsigned int*, char * ), const bool profiling, const unsigned int num_nodes, const unsigned int num_edges, unsigned int * nodes, unsigned int * adjacency_list, unsigned int * nodes_transpose, unsigned int * adjacency_list_transpose, char * status, char * og_status, const int repeat) {
 	// Call the function passed as an argument
 	chrono::milliseconds elapsedTime(0);
 
-	for(short i=0; i<repeat; i++){
+	for(short i=0; i<repeat + WARMUP; i++){
 		memcpy(status, og_status, num_nodes);
 
 		auto start = chrono::high_resolution_clock::now();
 		routine_runner(profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 		auto end = chrono::high_resolution_clock::now();
 
-		elapsedTime += chrono::duration_cast<chrono::milliseconds>(end - start);
+		if (WARMUP < i) {
+			elapsedTime += chrono::duration_cast<chrono::milliseconds>(end - start);
+		}
 	}
 
   	cout << "Total elapsed time: " << elapsedTime.count() << "ms" << endl;
@@ -71,15 +75,35 @@ int main(unsigned int argc, char ** argv) {
 	status = (char *) malloc(num_nodes * sizeof(char));
 
 	printf("Versione 0 - main.cpp\n");
+	chrono::milliseconds elapsedTime(0);
 	for(int i=0;i<repeat;i++){
 		memcpy(status, og_status, num_nodes);
+		
+		auto start = chrono::high_resolution_clock::now();
 		routine(profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
+		auto end = chrono::high_resolution_clock::now();
+		if (WARMUP < i) {
+			elapsedTime += chrono::duration_cast<chrono::milliseconds>(end - start);
+		}
 	}
 
+  	cout << "Total elapsed time: " << elapsedTime.count() << "ms" << endl;
+	cout << "Average elapsed time: " << elapsedTime.count()/repeat << "ms" << endl;
+
 	printf("Versione 1 - Naive\n");
+	chrono::milliseconds elapsedTime_v1(0);
 	for(int i=0;i<repeat;i++){
+		auto start = chrono::high_resolution_clock::now();
 		routine_v1(profiling, num_nodes_v1, num_edges_v1, nodes_v1, adjacency_list_v1, nodes_transpose_v1, adjacency_list_transpose_v1, is_u);
+		auto end = chrono::high_resolution_clock::now();
+
+		if (WARMUP < i) {
+			elapsedTime_v1 += chrono::duration_cast<chrono::milliseconds>(end - start);
+		}
 	}
+
+	cout << "Total elapsed time: " << elapsedTime_v1.count() << "ms" << endl;
+	cout << "Average elapsed time: " << elapsedTime_v1.count()/repeat << "ms" << endl;
 
 	printf("Versione 2 - Status\n");
 	common_routine(routine_v2, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat);
