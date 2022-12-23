@@ -13,9 +13,12 @@ using namespace std;
 #define DEBUG_UPDATE false
 #define DEBUG_FW_BW false
 #define DEBUG_MAIN false
+#ifndef DEBUG_FINAL
 #define DEBUG_FINAL true
+#endif
 
 #define CUDA_STREAMS 9
+
 
 /*
 
@@ -251,7 +254,7 @@ void routine_v4(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		cudaDeviceSynchronize();
 		
 		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-		printf("%d\n", result);
+		DEBUG_MSG("Result: ", result, DEBUG_FINAL);
 	}else{
 		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
 		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.

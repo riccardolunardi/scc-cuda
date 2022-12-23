@@ -14,9 +14,15 @@ using namespace std;
 #define DEBUG_UPDATE false
 #define DEBUG_FW_BW false
 #define DEBUG_MAIN false
+#ifndef DEBUG_FINAL
 #define DEBUG_FINAL true
+#endif
 
 #define CUDA_STREAMS 9
+
+#ifndef OMP_MIN_NODES
+#define OMP_MIN_NODES 10000
+#endif
 
 /*
 
@@ -103,7 +109,7 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	char * d_status;
 	unsigned long * d_write_id_for_pivots;
 
-	#pragma omp parallel sections if(num_nodes>100000) num_threads(MAX_THREADS_OMP)
+	#pragma omp parallel sections if(num_nodes>OMP_MIN_NODES) num_threads(MAX_THREADS_OMP)
 	{
 
 		#pragma omp section 
@@ -145,7 +151,7 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	cudaStream_t stream[CUDA_STREAMS];
 
 	// Creazione delle stream, allocazione delle variabili device e copia dei dati
-	#pragma omp parallel if(num_nodes>100000) shared (stream) num_threads(MAX_THREADS_OMP)
+	#pragma omp parallel if(num_nodes>OMP_MIN_NODES) shared (stream) num_threads(MAX_THREADS_OMP)
 	{
 		#pragma omp for schedule(static)
 		for (short i = 0; i < CUDA_STREAMS; i++) {
@@ -308,7 +314,7 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		}
     }
 	
-	#pragma omp parallel sections if(num_nodes>100000) num_threads(MAX_THREADS_OMP)
+	#pragma omp parallel sections if(num_nodes>OMP_MIN_NODES) num_threads(MAX_THREADS_OMP)
 	{
 		#pragma omp section 
 		{
@@ -359,30 +365,30 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	trim_u_kernel<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_nodes, d_adjacency_list, d_pivots, d_status);
 
 	bool * d_is_scc;
-	#pragma omp parallel sections if(num_nodes>100000) num_threads(MAX_THREADS_OMP)
+	#pragma omp parallel sections if(num_nodes>OMP_MIN_NODES) num_threads(MAX_THREADS_OMP)
 	{	
 		#pragma omp section 
 		{
 			HANDLE_ERROR(cudaHostUnregister(adjacency_list_transpose));
-			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list_transpose, stream[1]));
+			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list_transpose, stream[2]));
 		}
 
 		#pragma omp section 
 		{
 			HANDLE_ERROR(cudaHostUnregister(adjacency_list));
-			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list, stream[2]));
+			HANDLE_ERROR(cudaFreeAsync(d_adjacency_list, stream[3]));
 		}
 
 		#pragma omp section 
 		{
 			HANDLE_ERROR(cudaHostUnregister(nodes_transpose));
-			HANDLE_ERROR(cudaFreeAsync(d_nodes_transpose, stream[3]));
+			HANDLE_ERROR(cudaFreeAsync(d_nodes_transpose, stream[4]));
 		}
 
 		#pragma omp section 
 		{
 			HANDLE_ERROR(cudaHostUnregister(nodes));
-			HANDLE_ERROR(cudaFreeAsync(d_nodes, stream[4]));
+			HANDLE_ERROR(cudaFreeAsync(d_nodes, stream[5]));
 		}
 
 		#pragma omp section 
@@ -398,7 +404,7 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		cudaDeviceSynchronize();
 		
 		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-		printf("%d\n", result);
+		DEBUG_MSG("Result: ", result, DEBUG_FINAL);
 	}else{
 		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
 		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.

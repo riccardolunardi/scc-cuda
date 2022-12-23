@@ -11,10 +11,10 @@ using namespace std;
 #define DEBUG_UPDATE false
 #define DEBUG_FW_BW false
 #define DEBUG_MAIN false
+
+#ifndef DEBUG_FINAL
 #define DEBUG_FINAL true
-
-#define PRINT_RESULTS 1
-
+#endif
 
 /*
 
@@ -405,7 +405,7 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		cudaDeviceSynchronize();
 		
 		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc_final);
-		DEBUG_MSG("", result, PRINT_RESULTS);
+		DEBUG_MSG("Result: ", result, DEBUG_FINAL);
 
 		HANDLE_ERROR(cudaFree(d_is_scc_final));
 	}else{
@@ -413,7 +413,7 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		is_scc_adjust_v1<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_more_than_one, d_is_scc);
 		
 		HANDLE_ERROR(cudaMemcpy(is_scc, d_is_scc, num_nodes * sizeof(int), cudaMemcpyDeviceToHost));
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), PRINT_RESULTS);
+		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc_v1(is_scc, num_nodes), DEBUG_FINAL);
 	}
 	
 	HANDLE_ERROR(cudaFree(d_pivots));

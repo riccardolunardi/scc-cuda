@@ -14,10 +14,15 @@ using namespace std;
 #define DEBUG_UPDATE false
 #define DEBUG_FW_BW false
 #define DEBUG_MAIN false
+#ifndef DEBUG_FINAL
 #define DEBUG_FINAL true
+#endif
 
 #define CUDA_STREAMS 9
+#ifndef OMP_MIN_NODES
 #define OMP_MIN_NODES 10000
+#endif
+
 
 /* VERSIONE DEL CODICE CUDA: SCCv5 - Parallelizzazione backward e forward reach con OpenMP
  *  Rispetto alla quinta versione, in questa vengono parallelizzate, tramite le direttive di OpenMP, le esecuzioni delle backward reach e delle forward reach
@@ -399,7 +404,7 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		
 		// Se è rimasta almeno una SCC, allora is_there_an_scc restituisce true, altrimenti false
 		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-		printf("%d\n", result);
+		DEBUG_MSG("Result: ", result, DEBUG_FINAL);
 	}else{
 		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
 		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
