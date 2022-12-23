@@ -75,10 +75,10 @@ generate:
 	@ python3 ./gen/generate.py
 
 cuda-compile-test:
-	@ nvcc -Xcompiler /openmp .\cuda\scc_runner.cu -o ./build/scc.exe
-	@ ./build/scc.exe .\samples\final_tests\sample_test_gscc_fewu 2 0
-	@ ./build/scc.exe .\samples\mid_tests\sample_test_scc_fewu 2 0
-	@ ./build/scc.exe .\samples\final_tests\sample_test_scc_fewu 2 0
+	@ nvcc -Xcompiler /openmp -DDEBUG_FINAL=0 -DOMP_MIN_NODES=100000 .\cuda\scc_runner.cu -o ./build/scc.exe
+	@ ./build/scc.exe .\samples\mid_tests\sample_test_scc_fewu 20 0
+	@ ./build/scc.exe .\samples\final_tests\sample_test_gscc_fewu 20 0
+	@ ./build/scc.exe .\samples\final_tests\sample_test_scc_fewu 20 0
 
 cuda-test-only:
 	@ ./build/scc.exe .\samples\mid_tests\sample_test_scc_fewu 10 0
