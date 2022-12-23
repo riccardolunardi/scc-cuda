@@ -421,6 +421,7 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		pivots = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
 		final_status = (char*) malloc(num_nodes * sizeof(char));
 
+		// Copia dei dati finali in memoria host
 		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
 		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
 
@@ -430,6 +431,7 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		free(pivots);
 	}
 
+	// Liberazione di memoria finale e distruzione streams
 	#pragma omp parallel if(num_nodes>OMP_MIN_NODES) num_threads(MAX_THREADS_OMP)
 	{
 		#pragma omp sections
@@ -454,8 +456,6 @@ void routine_v6(const bool profiling, unsigned int num_nodes, unsigned int num_e
 				HANDLE_ERROR(cudaHostUnregister(status));
 			}
 		}
-
-		#pragma omp barrier
 
 		#pragma omp for schedule(static)
 		for (short i = 0; i < CUDA_STREAMS; i++) {

@@ -457,8 +457,6 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 			}
 		}
 
-		#pragma omp barrier
-
 		#pragma omp for schedule(static)
 		for (short i = 0; i < CUDA_STREAMS; i++) {
 			cudaStreamDestroy(stream[i]);
