@@ -40,6 +40,7 @@ void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, u
 				}
 			}
 
+			// Se elim non è stato modificato, allora il nodo v va eliminato
 			if(elim){
 				set_is_eliminated(status[v]);
 				stop = false;
