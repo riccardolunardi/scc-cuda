@@ -12,7 +12,9 @@ using namespace std;
 #define DEBUG_FW_BW false
 #define DEBUG_MAIN false
 
-#define PRINT_RESULTS 1
+#ifndef DEBUG_FINAL
+#define DEBUG_FINAL true
+#endif
 
 void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * nodes_transpose, unsigned * adjacency_list, unsigned * adjacency_list_transpose, unsigned * pivots, char * status, bool &stop){
 	// Esegue un solo ciclo di eliminazione dei nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
@@ -296,9 +298,9 @@ void routine(const bool profiling, int num_nodes, int num_edges, unsigned * node
 	trim_u(profiling, num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
 
 	if(profiling){
-		DEBUG_MSG("", is_network_valid, PRINT_RESULTS);
+		DEBUG_MSG("", is_network_valid, DEBUG_FINAL);
 	}else{
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), PRINT_RESULTS);
+		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), DEBUG_FINAL);
 	}
 
 	free(pivots);
