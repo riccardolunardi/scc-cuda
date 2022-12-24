@@ -6,33 +6,35 @@ import operator
 from itertools import repeat
 import os
 
-
 import networkx as nx
 import numpy as np
 
 from statistics import mean
 
 # Più grande è il numero di cicli, più grande sarà il grafo creato
-CYCLES_TO_CREATE = 100
+CYCLES_TO_CREATE = 10000
 GRAPH_NAME = f"{os.getcwd()}/sample_test"
 
 # Costante che aggiunge (RANDOM_ARCS_TO_ADD * numero di nodi) al grafo
 # Più alto è questo valore, meno SCC si creano
 RANDOM_ARCS_TO_ADD = 0.9999
 
+# Percentuale di nodi casuali da aggiungere (calcolata sui nodi del grafo principale)
+RANDOM_NODES_TO_ADD = 0.2
+
 # Numero di archi casuali da rimuovere
 # Più è alto questo valore, più SCC si creano
-N_ARCS_TO_REMOVE = CYCLES_TO_CREATE*0
+N_ARCS_TO_REMOVE = CYCLES_TO_CREATE*18
 
 # Con questo parametro si indica la percentuale di SCC i cui noid saranno sicuramente in U
 P_SCC_BEING_IN_U = 0.50
 
 # Con meno nodi in U si formano più SCC valid
-RATIO_U_NODES_TO_TOTAL_NODES = 18/20
+RATIO_U_NODES_TO_TOTAL_NODES = 1/20
 
 # Più grande è la differenza tra il LOWER_BOUND e l'UPPER_BOUND più SCC si creano
-LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*50/60)
-UPPER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*59/60)
+LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*1/60)
+UPPER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*2/60)
 
 def gen_cycles(_):
     cycle_length = random.randint(LOWER_BOUND_LENGTH_CYCLE, UPPER_BOUND_LENGTH_CYCLE)
@@ -76,6 +78,8 @@ if __name__ == "__main__":
     cycles = []
     chosen_length_cycle = []
 
+    random.seed(24122022)
+
     print("Genero i cicli...")
 
     cycles = map(gen_cycles, range(1, CYCLES_TO_CREATE+1))
@@ -90,6 +94,7 @@ if __name__ == "__main__":
     print(f"Cicli creati: {CYCLES_TO_CREATE}", f"Lunghezza media dei cicli creati: {avg_length_cycles}", "=================================================", sep="\n")
 
     print("Creazione del grafo principale...")
+    node_of_every_cycle += int(node_of_every_cycle*RANDOM_NODES_TO_ADD)
     main_graph = nx.empty_graph(node_of_every_cycle, create_using=nx.DiGraph)
 
     print("Unisco i cicli...")
