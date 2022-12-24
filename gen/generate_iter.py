@@ -88,5 +88,5 @@ if __name__ == "__main__":
         sample_text = f"% {len(order_adj)} {len(final_graph.nodes)}\n"
         sample_text += "\n".join([f"{u} {v}" for u, v in order_adj])
         sample_text += "\n" + "\n".join(list(map(str, random_u_nodes)))
-        with open(f"{GRAPH_FOLDER}{GRAPH_NAME}{i}", "w") as sample:
+        with open("{}{}{:03}".format(GRAPH_FOLDER, GRAPH_NAME, i), "w") as sample:
             sample.write(sample_text)
