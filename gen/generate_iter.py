@@ -7,12 +7,12 @@ if __name__ == "__main__":
     GRAPH_NAME = f"sample_test_iter"
     GRAPH_FOLDER = f"{os.getcwd()}/samples/iter_tests/"
     
-    for i, CYCLES_TO_CREATE in enumerate(range(100, 14000, 500)):    
+    for i, CYCLES_TO_CREATE in enumerate(range(100, 25000, 700)):    
         RANDOM_ARCS_TO_ADD = 0.99999
         RANDOM_NODES_TO_ADD = 0.3
         N_ARCS_TO_REMOVE = CYCLES_TO_CREATE*17
         P_SCC_BEING_IN_U = 0.50
-        RATIO_U_NODES_TO_TOTAL_NODES = (random.randint(1,3))/20
+        RATIO_U_NODES_TO_TOTAL_NODES = 1/20
         LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*(2/60))
         UPPER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*(5/60))
         cycles = []
