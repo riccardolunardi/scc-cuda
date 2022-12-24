@@ -1,0 +1,151 @@
+ECHO attivo.
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter000...
+Number of nodes: 32042
+Versione 0 - main.cpp -1.82008,0.180225
+Versione 1 - Naive -1.69492,0.315078
+Versione 2 - Status -1.26003,0.349234
+Versione 3 - Streams -1.19782,0.26499
+Versione 4 - Pinned -6.41507,4.32505
+Versione 5 - OpenMP -5.75941,3.26559
+Versione 6 - Reach Ottimizzato -10.424,11.8391
+Versione 7 - Reach Ottimizzato + status unico -2.8645,0.849871
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter001...
+Number of nodes: 258650
+Versione 0 - main.cpp -16.213,1.85295
+Versione 1 - Naive -7.11693,6.11686
+Versione 2 - Status -5.44834,2.36388
+Versione 3 - Streams -3.22186,0.479966
+Versione 4 - Pinned -7.45687,3.37707
+Versione 5 - OpenMP -6.42817,2.64321
+Versione 6 - Reach Ottimizzato -8.63275,8.76437
+Versione 7 - Reach Ottimizzato + status unico -6.15435,0.976091
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter002...
+Number of nodes: 486321
+Versione 0 - main.cpp -30.045,1.80512
+Versione 1 - Naive -9.16279,0.355731
+Versione 2 - Status -9.06269,6.03614
+Versione 3 - Streams -5.13074,0.536357
+Versione 4 - Pinned -11.0495,10.6361
+Versione 5 - OpenMP -10.3936,10.4734
+Versione 6 - Reach Ottimizzato -14.8856,15.4214
+Versione 7 - Reach Ottimizzato + status unico -9.79939,5.7667
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter003...
+Number of nodes: 713607
+Versione 0 - main.cpp -47.0847,4.90733
+Versione 1 - Naive -12.3332,0.848204
+Versione 2 - Status -8.16439,0.436575
+Versione 3 - Streams -6.08101,0.77898
+Versione 4 - Pinned -9.29179,1.21214
+Versione 5 - OpenMP -11.4313,10.9944
+Versione 6 - Reach Ottimizzato -8.91791,0.444437
+Versione 7 - Reach Ottimizzato + status unico -10.3657,8.14745
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter004...
+Number of nodes: 942602
+Versione 0 - main.cpp -64.0177,18.8412
+Versione 1 - Naive -17.6553,13.7783
+Versione 2 - Status -10.5946,0.889056
+Versione 3 - Streams -8.48265,0.599285
+Versione 4 - Pinned -12.206,0.992629
+Versione 5 - OpenMP -10.6307,0.723975
+Versione 6 - Reach Ottimizzato -25.3796,17.8566
+Versione 7 - Reach Ottimizzato + status unico -10.0057,1.0124
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter005...
+Number of nodes: 1165554
+Versione 0 - main.cpp -74.0202,5.79889
+Versione 1 - Naive -18.9311,1.10312
+Versione 2 - Status -14.0106,6.91387
+Versione 3 - Streams -11.7459,3.85941
+Versione 4 - Pinned -14.4837,3.01931
+Versione 5 - OpenMP -12.8556,0.973049
+Versione 6 - Reach Ottimizzato -12.9273,7.25652
+Versione 7 - Reach Ottimizzato + status unico -11.1502,0.347488
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter006...
+Number of nodes: 1396027
+Versione 0 - main.cpp -87.2329,1.31946
+Versione 1 - Naive -21.9053,1.19492
+Versione 2 - Status -13.0013,0.971671
+Versione 3 - Streams -12.9882,0.780225
+Versione 4 - Pinned -16.5813,1.08922
+Versione 5 - OpenMP -15.981,0.896112
+Versione 6 - Reach Ottimizzato -13.5536,1.1927
+Versione 7 - Reach Ottimizzato + status unico -13.2708,0.783792
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter007...
+Number of nodes: 1624957
+Versione 0 - main.cpp -100.725,1.22186
+Versione 1 - Naive -23.516,1.31293
+Versione 2 - Status -15.5583,0.653913
+Versione 3 - Streams -16.0895,1.57061
+Versione 4 - Pinned -16.9539,0.675552
+Versione 5 - OpenMP -16.6046,0.655013
+Versione 6 - Reach Ottimizzato -15.5113,2.03405
+Versione 7 - Reach Ottimizzato + status unico -16.2428,0.627479
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter008...
+Number of nodes: 1846409
+Versione 0 - main.cpp -119.769,5.5548
+Versione 1 - Naive -25.6983,1.34558
+Versione 2 - Status -18.8225,11.7753
+Versione 3 - Streams -14.6903,0.994917
+Versione 4 - Pinned -19.4291,4.25041
+Versione 5 - OpenMP -17.8829,2.80791
+Versione 6 - Reach Ottimizzato -17.3291,1.38083
+Versione 7 - Reach Ottimizzato + status unico -15.6346,0.863294
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter009...
+Number of nodes: 2081834
+Versione 0 - main.cpp -134.669,12.3911
+Versione 1 - Naive -28.4194,1.98057
+Versione 2 - Status -18.5746,0.876244
+Versione 3 - Streams -16.6782,0.530242
+Versione 4 - Pinned -20.3487,0.731517
+Versione 5 - OpenMP -20.8844,2.34246
+Versione 6 - Reach Ottimizzato -19.7217,2.06871
+Versione 7 - Reach Ottimizzato + status unico -21.2805,5.63841
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter010...
+Number of nodes: 2302068
+Versione 0 - main.cpp -147.372,5.42287
+Versione 1 - Naive -33.9158,2.86757
+Versione 2 - Status -19.9709,0.597065
+Versione 3 - Streams -19.7613,1.17185
+Versione 4 - Pinned -23.5499,5.11003
+Versione 5 - OpenMP -24.1185,14.3238
+Versione 6 - Reach Ottimizzato -21.3708,2.5417
+Versione 7 - Reach Ottimizzato + status unico -18.5228,1.19185
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter011...
+Number of nodes: 2533190
+Versione 0 - main.cpp -175.859,28.3516
+Versione 1 - Naive -48.3632,24.5505
+Versione 2 - Status -29.8702,6.07914
+Versione 3 - Streams -20.3595,0.59036
+Versione 4 - Pinned -25.1554,0.643662
+Versione 5 - OpenMP -27.6732,6.23737
+Versione 6 - Reach Ottimizzato -24.1063,2.39022
+Versione 7 - Reach Ottimizzato + status unico -21.5152,0.680598
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter012...
+Number of nodes: 2755871
+Versione 0 - main.cpp -175.065,14.0918
+Versione 1 - Naive -45.1168,17.6154
+Versione 2 - Status -21.8551,1.26746
+Versione 3 - Streams -21.1788,0.7535
+Versione 4 - Pinned -26.7295,1.5502
+Versione 5 - OpenMP -26.6747,1.08508
+Versione 6 - Reach Ottimizzato -22.482,1.45613
+Versione 7 - Reach Ottimizzato + status unico -21.6101,1.19931
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter013...
+Number of nodes: 2983313
+Versione 0 - main.cpp -212.966,23.4273
+Versione 1 - Naive -42.0405,3.79911
+Versione 2 - Status -27.6084,1.6662
+Versione 3 - Streams -25.4912,1.2624
+Versione 4 - Pinned -32.1871,8.03136
+Versione 5 - OpenMP -29.0815,1.05252
+Versione 6 - Reach Ottimizzato -26.219,0.83777
+Versione 7 - Reach Ottimizzato + status unico -34.0381,8.5569
+Lettura del file C:\Users\rikyn\scc-cuda\samples\iter_tests\sample_test_iter014...
+Number of nodes: 3209094
+Versione 0 - main.cpp -210.829,5.47632
+Versione 1 - Naive -51.5204,7.25025
+Versione 2 - Status -26.3607,1.09891
+Versione 3 - Streams -26.8165,1.20819
+Versione 4 - Pinned -30.9762,2.32787
+Versione 5 - OpenMP -31.1174,1.4655
+Versione 6 - Reach Ottimizzato -29.3357,3.7392
+Versione 7 - Reach Ottimizzato + status unico -28.4329,0.959612
