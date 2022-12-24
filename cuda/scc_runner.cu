@@ -5,6 +5,7 @@
 #include "sccv4_pinned.cu"
 #include "sccv5_openmp.cu"
 #include "sccv6_optreach.cu"
+#include "sccv7_optreach.cu"
 #include <chrono>
 #include <vector>
 using namespace std;
@@ -154,4 +155,7 @@ int main(unsigned int argc, char ** argv) {
 	
 	printf("Versione 6 - Reach Ottimizzato\n");
 	print_benchmark(common_routine(routine_v6, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
+
+	printf("Versione 7 - Reach Ottimizzato + status unico\n");
+	print_benchmark(common_routine(routine_v7, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 }
