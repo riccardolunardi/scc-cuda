@@ -18,3 +18,4 @@ main.out
 paper/*
 gen/graph*
 misc/*.txt
+__pycache__/
