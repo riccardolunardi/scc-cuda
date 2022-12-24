@@ -10,7 +10,7 @@
 #include <vector>
 using namespace std;
 
-#define WARMUP 3
+#define WARMUP 5
 
 double calculateStandardDeviation(double mean, int n, double numbers[]) {
 	// Calculate the sum of squared differences
@@ -61,9 +61,10 @@ void print_benchmark(const vector<double> executionTimes) {
 	// Calculate the standard deviation
 	double standardDeviation = sqrt(sumSquaredDifferences / executionTimes.size());
 
-  	cout << "Total elapsed time: " << sum << "ms" << endl;
-	cout << "Average elapsed time: " << mean << "ms" << endl;
-	cout << "Standard deviation: " << standardDeviation << "ms" << endl;
+  	//cout << "Total elapsed time: " << sum << "ms" << endl;
+	//cout << "Average elapsed time: " << mean << "ms" << endl;
+	//cout << "Standard deviation: " << standardDeviation << "ms" << endl;
+	cout << mean << "," << standardDeviation << endl;
 }
 
 int main(unsigned int argc, char ** argv) {
@@ -83,7 +84,7 @@ int main(unsigned int argc, char ** argv) {
 	printf("Lettura del file %s...\n", argv[1]);
 	create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, og_status);
 
-	printf("Number of nodes: %d...\n", num_nodes);
+	printf("Number of nodes: %d\n", num_nodes);
 	
 	// Inizializzazione di struttrure dati per la versione 1
 	int num_nodes_v1, num_edges_v1;
@@ -112,7 +113,7 @@ int main(unsigned int argc, char ** argv) {
 	char * status;
 	status = (char *) malloc(num_nodes * sizeof(char));
 
- 	printf("Versione 0 - main.cpp\n");
+ 	printf("Versione 0 - main.cpp -");
 	vector<double> executionTimes;
 	for(int i=0;i<repeat;i++){
 		memcpy(status, og_status, num_nodes);
@@ -127,7 +128,7 @@ int main(unsigned int argc, char ** argv) {
 
   	print_benchmark(executionTimes);
 
-	printf("Versione 1 - Naive\n");
+	printf("Versione 1 - Naive -");
 	executionTimes.clear();
 	for(int i=0;i<repeat;i++){
 		auto start = chrono::high_resolution_clock::now();
@@ -141,21 +142,21 @@ int main(unsigned int argc, char ** argv) {
 
 	print_benchmark(executionTimes);
 
-	printf("Versione 2 - Status\n");
+	printf("Versione 2 - Status -");
 	print_benchmark(common_routine(routine_v2, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
-	printf("Versione 3 - Streams\n");
+	printf("Versione 3 - Streams -");
 	print_benchmark(common_routine(routine_v3, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
-	printf("Versione 4 - Pinned\n");
+	printf("Versione 4 - Pinned -");
 	print_benchmark(common_routine(routine_v4, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
-	printf("Versione 5 - OpenMP\n");
+	printf("Versione 5 - OpenMP -");
 	print_benchmark(common_routine(routine_v5, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
-	printf("Versione 6 - Reach Ottimizzato\n");
+	printf("Versione 6 - Reach Ottimizzato -");
 	print_benchmark(common_routine(routine_v6, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 
-	printf("Versione 7 - Reach Ottimizzato + status unico\n");
+	printf("Versione 7 - Reach Ottimizzato + status unico -");
 	print_benchmark(common_routine(routine_v7, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 }
