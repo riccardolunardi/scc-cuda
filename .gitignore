@@ -1,7 +1,6 @@
 *.exe
 *.exp
 *.lib
-*.bat
 
 ### VisualStudioCode ###
 .vscode
