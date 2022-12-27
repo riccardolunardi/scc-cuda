@@ -168,6 +168,20 @@ __global__ void set_colors(unsigned int const num_nodes, char * d_status, unsign
 	}
 }
 
+__global__ void set_new_eliminated(unsigned int const num_nodes, char * d_status, unsigned int * d_pivots, unsigned int * d_colors, unsigned long * d_write_id_for_pivots){
+
+	unsigned int const v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if(v < num_nodes) {
+		if(get_is_d_eliminated(&d_status[v])){
+			if(!get_is_d_scc(&d_status[v])){
+				d_pivots[v] = v;
+			}
+		}
+	}
+
+}
+
 __global__ void set_new_pivots(unsigned int const num_nodes, char * d_status, unsigned int * d_pivots, unsigned int * d_colors, unsigned long * d_write_id_for_pivots){
 	// Esegue l'update dei valori del pivot facendo una race, scrivendo il "colore" di una serie di pivot in array simultaneamente
 	
@@ -177,8 +191,20 @@ __global__ void set_new_pivots(unsigned int const num_nodes, char * d_status, un
 		char src = d_status[v];
 		const unsigned int new_color = d_colors[v];
 
+ 		/*if(59694 == v || 59591 == v || 59666 == v || 1300 == v || 1301 == v){
+			printf("\n%d p -> colore %u -> status -> ", v, new_color); 
+			for(int i=7; i>-1; i--) {
+				if(src & (1 << i)) {
+					printf("1");
+				} else {
+					printf("0");
+				}
+			}
+			printf(" -> pivot %u\n", d_pivots[v]);
+		} */
+
 		// Se il nodo è stato eliminato, allora il suo pivot è per forza se stesso
-		if(get_is_d_eliminated(&src)){
+		/* if(get_is_d_eliminated(&src)){
 			if(!get_is_d_scc(&src)){
 				d_pivots[v] = v;
 			}
@@ -191,6 +217,29 @@ __global__ void set_new_pivots(unsigned int const num_nodes, char * d_status, un
 				set_is_d_scc_is_eliminated(&d_status[d_pivots[v]]);
 				set_is_d_scc_is_eliminated(&d_status[v]);
 			}
+		} */
+
+		if(!get_is_d_eliminated(&src)){
+			// Se non sono stati eliminati, allora setta il valore del pivot uguale al nodo che ha vinto la race
+			d_pivots[v] = d_write_id_for_pivots[new_color];
+			set_is_d_bw_fw_visited(&d_status[d_pivots[v]]);		
+			// I nodi che fanno parte di una SCC, vengono settati come eliminati e come SCC
+			if((new_color & 3) == 0){
+				set_is_d_scc_is_eliminated(&d_status[d_pivots[v]]);
+				set_is_d_scc_is_eliminated(&d_status[v]);
+			}
+		}
+		
+		if(59694 == v || 59591 == v || 59666 == v || 1300 == v || 1301 == v){
+			printf("\n%d p -> colore %u -> status -> ", v, new_color); 
+			for(int i=7; i>-1; i--) {
+				if(src & (1 << i)) {
+					printf("1");
+				} else {
+					printf("0");
+				}
+			}
+			printf(" -> pivot %u\n", d_pivots[v]);
 		}
 	}
 }
@@ -370,7 +419,7 @@ __global__ void convert_int_array_to_bool(unsigned int const num_nodes, int * d_
 	}
 }
 
-int count_distinct_scc_v1(int is_scc[], int num_nodes){
+/* int count_distinct_scc_v1(int is_scc[], int num_nodes){
 	// Restituisce il numero di SCC valide presenti nell'array is_scc
 	// Questa funzione non viene parallelizzata poiché utilizzata solamente per verificare la correttezza del risultato
 	// @param:  is_scc 	= 	Lista contenente le SCC valide trovate
@@ -390,9 +439,26 @@ int count_distinct_scc_v1(int is_scc[], int num_nodes){
             res++;
     }
     return res;
+} */
+
+set<int> count_distinct_scc_v1(int is_scc[], int n){
+	// Conta quanti elementi distinti ci sono in un array
+
+	set<int> s;
+
+	// Aggiungo un elemento al set se fa parte della SCC
+	// set non permette elementi ripetuti, quindi ogni pivot comparirà una volta sola
+
+	for(int i=0; i<n; i++) {
+		if(is_scc[i] != -1) {
+        	s.insert(is_scc[i]);
+		}
+    }
+	
+    return s;
 }
 
-unsigned count_distinct_scc(unsigned n, unsigned int pivots[], char status[]){
+set<unsigned> count_distinct_scc(unsigned n, unsigned int pivots[], char status[]){
 	// Conta quanti elementi distinti ci sono in un array
 
 	set<unsigned> s;
@@ -406,7 +472,7 @@ unsigned count_distinct_scc(unsigned n, unsigned int pivots[], char status[]){
 		}
     }
 	
-    return s.size();
+    return s;
 }
 
 __global__ void calculate_more_than_one(int num_nodes, int * d_more_than_one_dev, int * is_scc_dev) {
