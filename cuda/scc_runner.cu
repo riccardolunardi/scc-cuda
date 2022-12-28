@@ -115,7 +115,7 @@ int main(unsigned int argc, char ** argv) {
 	status = (char *) malloc(num_nodes * sizeof(char));
 
 	vector<double> executionTimes;
-	printf("Versione 0 - main.cpp -");
+	printf("Versione 0 -Sequen.-\n");
 	for(int i=0;i<repeat;i++){
 		memcpy(status, og_status, num_nodes);
 		
