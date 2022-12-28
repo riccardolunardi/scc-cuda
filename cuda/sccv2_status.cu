@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cuda.h>
 #include <set>
+#include <unordered_map>
 using namespace std;
 
 #define DEBUG_F_KERNEL false
@@ -95,6 +96,8 @@ void update_v2(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	
 	set_new_pivots<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
 	cudaDeviceSynchronize();
+	set_new_eliminated<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
+	cudaDeviceSynchronize();
 }
 
 void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
@@ -170,6 +173,17 @@ void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	initialize_pivot<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
 	cudaDeviceSynchronize();
 	set_initialize_pivot<<<NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
+	cudaDeviceSynchronize();
+
+	unsigned int * pivot_test = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
+	char * status_test = (char*) malloc(num_nodes);
+	// HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+	// HANDLE_ERROR(cudaMemcpy(status_test, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost));
+
+	// for (int i = 0; i < num_nodes; i++){
+	// 		if(get_is_d_u(&status_test[i]))
+	// 		printf("%d: %d - %s\n", i, pivot_test[i], from_status_to_string(status_test[i]));
+	// 	}
 
 	// Si ripete il ciclo fino a quando tutti i nodi vengono eliminati
 	stop = false;
@@ -182,6 +196,14 @@ void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_e
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
 		reach_v2(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_status, h_get_bw_visited, h_get_bw_expanded, h_set_bw_visited, h_set_bw_expanded, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
+		// HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(status_test, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost));
+
+		// for (int i = 0; i < num_nodes; i++){
+		// 	if(get_is_d_u(&status_test[i]))
+		// 	printf("%d: %d - %s\n", i, pivot_test[i], from_status_to_string(status_test[i]));
+		// }
+
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		//DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
         //trimming_v2(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
@@ -189,6 +211,13 @@ void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update_v2(num_nodes, d_pivots, d_status, d_colors, d_write_id_for_pivots, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
+		cudaDeviceSynchronize();
+		// HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(status_test, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost));
+		// for (int i = 0; i < num_nodes; i++){
+		// 	if(get_is_d_u(&status_test[i]))
+		// 	printf("%d: %d - %s\n", i, pivot_test[i], from_status_to_string(status_test[i]));
+		// }
 
 		if(!stop){
 			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
@@ -235,7 +264,9 @@ void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
 		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
 
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(num_nodes, pivots, final_status), DEBUG_FINAL);
+		set<unsigned> s = count_distinct_scc(num_nodes, pivots, final_status);
+
+		DEBUG_MSG("Number of SCCs found: ", s.size(), true);
 
 		/* HANDLE_ERROR(cudaFree(d_pivots));
 		HANDLE_ERROR(cudaFree(d_status)); */
