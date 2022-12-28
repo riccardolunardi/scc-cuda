@@ -1,4 +1,60 @@
-from generate import *
+from functools import partial
+import random
+from multiprocessing import Pool
+import itertools
+import operator
+from itertools import repeat
+import os
+
+import networkx as nx
+import numpy as np
+
+from statistics import mean
+import subprocess
+
+RANDOM_ARCS_TO_ADD = 0.5
+RANDOM_NODES_TO_ADD = 0.6
+P_SCC_BEING_IN_U = 0.50
+RATIO_U_NODES_TO_TOTAL_NODES = 0/20
+
+
+def gen_cycles(_):
+    cycle_length = random.randint(LOWER_BOUND_LENGTH_CYCLE, UPPER_BOUND_LENGTH_CYCLE)
+    return nx.cycle_graph(cycle_length, create_using=nx.DiGraph()), cycle_length
+
+def add_edges_to_main_graph(new_edges_with_offset):
+    main_graph.add_edges_from(new_edges_with_offset)
+
+def get_new_edges(offset, i, e):
+    return ((e[0]+i)*offset, (e[1]+i)*offset)
+
+def graphs_equal(graph1, graph2):
+    return (
+        graph1.adj == graph2.adj
+        and graph1.nodes == graph2.nodes
+        and graph1.graph == graph2.graph
+    )
+
+def add_offset_to_edges(cycle_offset):
+    cycle, offset = cycle_offset
+    return [(e[0]+offset, e[1]+offset) for e in cycle.edges]
+
+def keep_arc_if_node_exists(u_v, n):
+    if u_v[0] > n or u_v[1] > n:
+        return None
+    return u_v
+
+def remove_offset_nodes(v, offset):
+    return v-offset
+
+def remove_offset_arcs(u_v, offset):
+    return (u_v[0]-offset, u_v[1]-offset)
+
+def limit_arcs(u_v, max_node):
+    if max_node >= u_v[0] and max_node >= u_v[1]:
+        return u_v
+    return None
+
 
 if __name__ == "__main__":
     
@@ -7,14 +63,11 @@ if __name__ == "__main__":
     GRAPH_NAME = f"sample_test_iter"
     GRAPH_FOLDER = f"{os.getcwd()}/samples/iter_tests/"
     
-    for i, CYCLES_TO_CREATE in enumerate(range(100, 25000, 700)):    
-        RANDOM_ARCS_TO_ADD = 0.99999
-        RANDOM_NODES_TO_ADD = 0.3
-        N_ARCS_TO_REMOVE = CYCLES_TO_CREATE*17
-        P_SCC_BEING_IN_U = 0.50
-        RATIO_U_NODES_TO_TOTAL_NODES = 1/20
-        LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*(2/60))
-        UPPER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*(5/60))
+    for i, CYCLES_TO_CREATE in enumerate(range(3000, 12000, 1200)):   
+        N_ARCS_TO_REMOVE = CYCLES_TO_CREATE*2 
+        LOWER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*(45/60))
+        UPPER_BOUND_LENGTH_CYCLE = int(CYCLES_TO_CREATE*(50/60))
+
         cycles = []
         chosen_length_cycle = []
 
@@ -90,3 +143,8 @@ if __name__ == "__main__":
         sample_text += "\n" + "\n".join(list(map(str, random_u_nodes)))
         with open("{}{}{:03}".format(GRAPH_FOLDER, GRAPH_NAME, i), "w") as sample:
             sample.write(sample_text)
+
+        result = subprocess.run([f'{os.getcwd()}/build/scc_check.exe', "{}{}{:03}".format(GRAPH_FOLDER, GRAPH_NAME, i), '1', "0"], stdout=subprocess.PIPE, universal_newlines=True)
+
+        print(result.stdout)
+        
