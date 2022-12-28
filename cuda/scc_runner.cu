@@ -11,7 +11,7 @@
 using namespace std;
 
 #ifndef WARMUP
-#define WARMUP 0
+#define WARMUP 5
 #endif WARMUP
 
 double calculateStandardDeviation(double mean, int n, double numbers[]) {
@@ -40,6 +40,8 @@ vector<double> common_routine(void (*routine_runner)(const bool, unsigned int, u
 		if (WARMUP < i) {
 			executionTimes.push_back(chrono::duration<double, milli>(end - start).count());
 		}
+
+		cudaDeviceReset();
 	}
 
 	return executionTimes;
@@ -87,7 +89,7 @@ int main(unsigned int argc, char ** argv) {
 	create_graph_from_filename(argv[1], num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, og_status);
 
 	printf("Number of nodes: %d\n", num_nodes);
-	
+
 	// Inizializzazione di struttrure dati per la versione 1
 	int num_nodes_v1, num_edges_v1;
     int * nodes_v1, * adjacency_list_v1, * nodes_transpose_v1, * adjacency_list_transpose_v1;
@@ -132,7 +134,7 @@ int main(unsigned int argc, char ** argv) {
 
 	printf("Versione 1 - Naive -");
 	executionTimes.clear();
-	for(int i=0;i<repeat;i++){
+	for(int i=0;i<repeat + WARMUP;i++){
 		auto start = chrono::high_resolution_clock::now();
 		routine_v1(profiling, num_nodes_v1, num_edges_v1, nodes_v1, adjacency_list_v1, nodes_transpose_v1, adjacency_list_transpose_v1, is_u);
 		auto end = chrono::high_resolution_clock::now();
@@ -140,6 +142,8 @@ int main(unsigned int argc, char ** argv) {
 		if (WARMUP < i) {
 			executionTimes.push_back(chrono::duration<double, milli>(end - start).count());
 		}
+		
+		cudaDeviceReset();
 	}
 
 	print_benchmark(executionTimes);
