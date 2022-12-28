@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <cstring>
+#include <numeric>
 #include "../utils/is_checked.cpp"
 using namespace std;
 
@@ -53,7 +54,8 @@ void create_graph_from_header_and_stream(ifstream & infile, unsigned num_nodes, 
     // nella lista delle adiacenze metto v
     adjacency_list[iterator_adjacency_list] = v;
 
-    for(unsigned i = 0; i < num_edges - 1; ++i) {
+    // Vecchio codice meno performante
+    /*for(unsigned i = 0; i < num_edges - 1; ++i) {
         // Immagino un arco (u,v)
         getline(infile, line);
 	    istringstream iss(line);
@@ -72,6 +74,18 @@ void create_graph_from_header_and_stream(ifstream & infile, unsigned num_nodes, 
             }
         }
     }
+    */
+
+    for(unsigned i = 0; i < num_edges - 1; ++i) {
+        infile >> u >> v;
+        adjacency_list[++iterator_adjacency_list] = v;
+
+        if (old_u != u) {
+            while (old_u < u) {
+                nodes[++old_u] = iterator_adjacency_list;
+            }
+        }
+    }
 
     // faccio puntare tutti gli ultimi nodi senza archi e il nodo dummy, ad una posizione dummy della lista d'adiacenza
     while(u < num_nodes - 1) {
@@ -79,11 +93,11 @@ void create_graph_from_header_and_stream(ifstream & infile, unsigned num_nodes, 
     }
 
     // leggo finchè ci sono righe
-    while (getline(infile, line)) {
-	    istringstream iss(line);
-        iss >> u;
-        set_not_is_eliminated(status[u]);
-        set_is_u(status[u]);
+    while (infile >> u) {
+        status[u] = (status[u] | 32) & 251;
+        
+        //set_not_is_eliminated(status[u]);
+        //set_is_u(status[u]);
     }
 }
 
@@ -98,11 +112,8 @@ void create_transposed_graph_from_graph(unsigned num_nodes, unsigned num_edges, 
         ++ nodes_transpose[adjacency_list[i]];
     }
 
-    unsigned max = 0;
-    // faccio la somma di tutti i valori contenuti in nodes
-    for(unsigned i=0; i < num_nodes; i++) {
-        max += nodes_transpose[i];
-    }
+    // Prima lo faceva un for, ma così è più performante
+    unsigned max = std::accumulate(nodes_transpose, nodes_transpose + num_nodes, 0);
 
     // Parto dall'ultimo nodo e computo la posizione inizale nella lista di adiacenza, procedo a ritroso nel vettore
     for(unsigned i = num_nodes; i > 0; i--) {
@@ -165,17 +176,15 @@ void create_graph_from_filename(string filename, unsigned & num_nodes, unsigned 
     DEBUG_MSG("Number of nodes: ", num_nodes, DEBUG_CREATE);
     DEBUG_MSG("Number of edges: ", num_edges, DEBUG_CREATE);
 
-    for(unsigned i = 0; i < num_nodes; i++) {
-        DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_CREATE);
-    }
-    for(unsigned i = 0; i < num_edges; i++) {
-        DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_CREATE);
-    }
-    for(unsigned i = 0; i < num_nodes; i++) {
-        DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_CREATE);
-    }
-    for(unsigned i = 0; i < num_edges; i++) {
-        DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_CREATE);
+    if (DEBUG_CREATE){
+        for(int i = 0; i < num_nodes; i++)
+            DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_CREATE);
+        for(int i = 0; i < num_edges; i++)
+            DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_CREATE);
+        for(int i = 0; i < num_nodes; i++)
+            DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_CREATE);
+        for(int i = 0; i < num_edges; i++)
+            DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_CREATE);
     }
 }
 
