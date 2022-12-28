@@ -1,6 +1,7 @@
 *.exe
 *.exp
 *.lib
+*.png
 
 ### VisualStudioCode ###
 .vscode
