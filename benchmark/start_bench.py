@@ -8,7 +8,7 @@ def print_stdout(output):
     print(output.stdout.decode('utf-8').replace('\r', ''))
 
 print("Compiling CUDA code...")
-compiler_output = subprocess.run(["nvcc", "-Xcompiler", "/openmp", "-DDEBUG_FINAL=0", "-DOMP_MIN_NODES=100000", "-DWARMUP=5", ".\cuda\scc_runner.cu", "-o", "./build/scc.exe"], capture_output=True)
+compiler_output = subprocess.run(["nvcc", "-Xcompiler", "/openmp", "-DDEBUG_FINAL=0", "-DOMP_MIN_NODES=100000", "-DWARMUP=1", ".\cuda\scc_runner.cu", "-o", "./build/scc.exe"], capture_output=True)
 print_stdout(compiler_output)
 
 FOLDER_PATH = 'F:/network-benchmark/final/'
@@ -22,7 +22,7 @@ for file in files:
         print(f"Benchmarking {file}...")
         
         try:
-            output = subprocess.run(['./build/scc.exe', FOLDER_PATH + file, '1', '1'], capture_output=True)
+            output = subprocess.run(['./build/scc.exe', FOLDER_PATH + file, '50', '1'], capture_output=True)
             print_stdout(output)
             output_string = output.stdout.decode('utf-8')
 
@@ -59,6 +59,5 @@ for file in files:
 
             # Show the plot
             plt.savefig(f'./benchmark/result/{graph_names[0]}.png')
-            break
         except Exception as e:
             print("Error: ", e, " - skipping file...")
