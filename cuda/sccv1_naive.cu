@@ -367,21 +367,21 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 
 	//HANDLE_ERROR(cudaMemcpy(status_test, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost));
 
-	string variable = "";
-	for (int i = 0; i < num_nodes; i++){
-		if(is_u[i]){
-			variable += "00";
-			variable += (is_u[i]) ? "1" : "0";
-			variable += (fw_expanded_test[i]) ? "1" : "0";
-			variable += (bw_expanded_test[i]) ? "1" : "0";
-			variable += (is_eliminated_test[i]) ? "1" : "0";
-			variable += (bw_visited_test[i]) ? "1" : "0";
-			variable += (fw_visited_test[i]) ? "1" : "0";
+	// string variable = "";
+	// for (int i = 0; i < num_nodes; i++){
+	// 	if(is_u[i]){
+	// 		variable += "00";
+	// 		variable += (is_u[i]) ? "1" : "0";
+	// 		variable += (fw_expanded_test[i]) ? "1" : "0";
+	// 		variable += (bw_expanded_test[i]) ? "1" : "0";
+	// 		variable += (is_eliminated_test[i]) ? "1" : "0";
+	// 		variable += (bw_visited_test[i]) ? "1" : "0";
+	// 		variable += (fw_visited_test[i]) ? "1" : "0";
 
-			printf("%d: %d - %s\n", i, pivot_test[i], variable);
-			variable = "";
-		}
-	}
+	// 		printf("%d: %d - %s\n", i, pivot_test[i], variable);
+	// 		variable = "";
+	// 	}
+	// }
 
     bool stop = false;
 	
@@ -395,27 +395,27 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
 		reach(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_bw_is_visited, d_is_eliminated, d_bw_is_expanded, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
-		HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(fw_visited_test, d_fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(bw_visited_test, d_bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(fw_expanded_test, d_fw_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(bw_expanded_test, d_bw_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(is_eliminated_test, d_is_eliminated, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(fw_visited_test, d_fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(bw_visited_test, d_bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(fw_expanded_test, d_fw_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(bw_expanded_test, d_bw_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(is_eliminated_test, d_is_eliminated, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 
-		for (int i = 0; i < num_nodes; i++){
-			if(is_u[i]){
-				variable += "00";
-				variable += (is_u[i]) ? "1" : "0";
-				variable += (fw_expanded_test[i]) ? "1" : "0";
-				variable += (bw_expanded_test[i]) ? "1" : "0";
-				variable += (is_eliminated_test[i]) ? "1" : "0";
-				variable += (bw_visited_test[i]) ? "1" : "0";
-				variable += (fw_visited_test[i]) ? "1" : "0";
+		// for (int i = 0; i < num_nodes; i++){
+		// 	if(is_u[i]){
+		// 		variable += "00";
+		// 		variable += (is_u[i]) ? "1" : "0";
+		// 		variable += (fw_expanded_test[i]) ? "1" : "0";
+		// 		variable += (bw_expanded_test[i]) ? "1" : "0";
+		// 		variable += (is_eliminated_test[i]) ? "1" : "0";
+		// 		variable += (bw_visited_test[i]) ? "1" : "0";
+		// 		variable += (fw_visited_test[i]) ? "1" : "0";
 
-				printf("%d: %d - %s\n", i, pivot_test[i], variable);
-				variable = "";
-			}
-		}
+		// 		printf("%d: %d - %s\n", i, pivot_test[i], variable);
+		// 		variable = "";
+		// 	}
+		// }
 
 		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		//DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
@@ -425,29 +425,28 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update(num_nodes, d_pivots, d_fw_is_visited, d_bw_is_visited, d_is_eliminated, d_write_id_for_pivots, d_colors, &stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
-		HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(fw_visited_test, d_fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(bw_visited_test, d_bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(fw_expanded_test, d_fw_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(bw_expanded_test, d_bw_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
-		HANDLE_ERROR(cudaMemcpy(is_eliminated_test, d_is_eliminated, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(fw_visited_test, d_fw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(bw_visited_test, d_bw_is_visited, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(fw_expanded_test, d_fw_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(bw_expanded_test, d_bw_is_expanded, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
+		// HANDLE_ERROR(cudaMemcpy(is_eliminated_test, d_is_eliminated, num_nodes * sizeof(bool), cudaMemcpyDeviceToHost));
 
-		for (int i = 0; i < num_nodes; i++){
-			if(is_u[i]){
-				variable += "00";
-				variable += (is_u[i]) ? "1" : "0";
-				variable += (fw_expanded_test[i]) ? "1" : "0";
-				variable += (bw_expanded_test[i]) ? "1" : "0";
-				variable += (is_eliminated_test[i]) ? "1" : "0";
-				variable += (bw_visited_test[i]) ? "1" : "0";
-				variable += (fw_visited_test[i]) ? "1" : "0";
+		// for (int i = 0; i < num_nodes; i++){
+		// 	if(is_u[i]){
+		// 		variable += "00";
+		// 		variable += (is_u[i]) ? "1" : "0";
+		// 		variable += (fw_expanded_test[i]) ? "1" : "0";
+		// 		variable += (bw_expanded_test[i]) ? "1" : "0";
+		// 		variable += (is_eliminated_test[i]) ? "1" : "0";
+		// 		variable += (bw_visited_test[i]) ? "1" : "0";
+		// 		variable += (fw_visited_test[i]) ? "1" : "0";
 
-				printf("%d: %d - %s\n", i, pivot_test[i], variable);
-				variable = "";
-			}
-		}
-
-		printf("-");
+		// 		printf("%d: %d - %s\n", i, pivot_test[i], variable);
+		// 		variable = "";
+		// 	}
+		// }
+		
 		if(!stop){
 			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
 			trimming(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_is_eliminated, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
@@ -496,12 +495,12 @@ void routine_v1(const bool profiling, int num_nodes, int num_edges, int * nodes,
 		/* for(auto it = s.begin(); it != s.end(); it++){
 			cout << *it << "\n" ;
 		} */
-		for(int i = 0; i < num_nodes; i++){
-			if(s.count(is_scc[i])){
-				cout << i << " : " << is_scc[i] << "\n";
-			}
-		}
-		DEBUG_MSG("Number of SCCs found: ", s.size(), DEBUG_FINAL);
+		// for(int i = 0; i < num_nodes; i++){
+		// 	if(s.count(is_scc[i])){
+		// 		cout << i << " : " << is_scc[i] << "\n";
+		// 	}
+		// }
+		DEBUG_MSG("Number of SCCs found: ", s.size(), true);
 	}
 	
 	HANDLE_ERROR(cudaFree(d_pivots));

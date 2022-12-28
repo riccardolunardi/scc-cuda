@@ -111,6 +111,8 @@ void update_v3(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	
 	set_new_pivots<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
 	cudaDeviceSynchronize();
+	set_new_eliminated<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
+	cudaDeviceSynchronize();
 }
 
 void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
@@ -267,7 +269,9 @@ void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
 		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
 
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(num_nodes, pivots, final_status), DEBUG_FINAL);
+		set<unsigned> s = count_distinct_scc(num_nodes, pivots, final_status);
+
+		DEBUG_MSG("Number of SCCs found: ", s.size(), true);
 
 		free(final_status);
 		free(pivots);

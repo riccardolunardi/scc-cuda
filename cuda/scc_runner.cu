@@ -1,11 +1,11 @@
 #include "../main.cpp"
 #include "sccv1_naive.cu"
 #include "sccv2_status.cu"
-/* #include "sccv3_streams.cu"
+#include "sccv3_streams.cu"
 #include "sccv4_pinned.cu"
 #include "sccv5_openmp.cu"
 #include "sccv6_optreach.cu"
-#include "sccv7_optreach.cu" */
+#include "sccv7_optreach.cu"
 #include <chrono>
 #include <vector>
 using namespace std;
@@ -116,7 +116,7 @@ int main(unsigned int argc, char ** argv) {
 	status = (char *) malloc(num_nodes * sizeof(char));
 
 	vector<double> executionTimes;
-/*  	printf("Versione 0 - main.cpp -");
+	printf("Versione 0 - main.cpp -");
 	for(int i=0;i<repeat;i++){
 		memcpy(status, og_status, num_nodes);
 		
@@ -142,13 +142,10 @@ int main(unsigned int argc, char ** argv) {
 		}
 	}
 
-	print_benchmark(executionTimes); */
+	print_benchmark(executionTimes);
 
-	
 	printf("Versione 2 - Status -");
 	print_benchmark(common_routine(routine_v2, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
-
-	/*
 	
  	printf("Versione 3 - Streams -");
 	print_benchmark(common_routine(routine_v3, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
@@ -163,5 +160,5 @@ int main(unsigned int argc, char ** argv) {
 	print_benchmark(common_routine(routine_v6, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 
 	printf("Versione 7 - Reach Ottimizzato + status unico -");
-	print_benchmark(common_routine(routine_v7, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat)); */
+	print_benchmark(common_routine(routine_v7, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 }

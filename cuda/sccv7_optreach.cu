@@ -53,6 +53,8 @@ void update_v7(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 
 	// Setto i valori dei pivot che hanno vinto la race
 	set_new_pivots<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
+	cudaDeviceSynchronize();
+	set_new_eliminated<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
 }
 
 void routine_v7(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
@@ -303,33 +305,6 @@ void routine_v7(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		}
     }
 
-	// Codice per estrapolazione delle SCC con relativo pivot
-
-	/* unsigned int * pivots = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
-	HANDLE_ERROR(cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
-
-	// Create a map to store the indexes of the elements with the same value
-	unordered_map<int, vector<int>> index_map;
-
-	// Iterate over the array and store the indexes of the elements with the same value in the map
-	for (int i = 0; i < num_nodes; ++i) {
-		index_map[pivots[i]].push_back(i);
-	}
-
-	// Iterate over the map and print the indexes of the elements with the same value
-	for (auto it = index_map.begin(); it != index_map.end(); ++it) {
-		int value = it->first;
-		const vector<int>& indexes = it->second;
-
-		if(indexes.size() > 2 && indexes.size() < 20){
-			cout << value << ": ";
-			for (int index : indexes) {
-				cout << index << " ";
-			}
-			cout << endl;
-		}
-	}
-	 */
 	// L'algoritmo di identificazione delle SCC è concluso, si procede con una liberazione parziale della memoria allocata
 	
 	#pragma omp parallel sections if(num_nodes>OMP_MIN_NODES) num_threads(MAX_THREADS_OMP)
@@ -448,7 +423,9 @@ void routine_v7(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
 		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
 
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(num_nodes, pivots, final_status), DEBUG_FINAL);
+		set<unsigned> s = count_distinct_scc(num_nodes, pivots, final_status);
+
+		DEBUG_MSG("Number of SCCs found: ", s.size(), true);
 
 		free(final_status);
 		free(pivots);

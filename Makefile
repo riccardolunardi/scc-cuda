@@ -82,3 +82,12 @@ cuda-compile-test:
 
 cuda-test-only:
 	@ ./build/scc.exe .\samples\mid_tests\sample_test_scc_fewu 10 0
+
+compile-bug:
+	@ nvcc -Xcompiler /openmp -DDEBUG_FINAL=0 -DOMP_MIN_NODES=100000 .\cuda\scc_runner.cu -o ./build/scc.exe
+
+run-twitter-bug:
+	@ .\build\scc.exe .\samples\final_tests\twitter.txt 10 0 > final.txt
+
+run-amazon-bug:
+	@ .\build\scc.exe .\samples\final_tests\amazon.txt 10 0 > final.txt
