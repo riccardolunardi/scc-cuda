@@ -18,11 +18,11 @@ rects = []
 fig, ax = plt.subplots()
 
 for file in files:
-    if file.endswith('.txt') and file.startswith('twitter.'): # or file.startswith('amazon')
+    if file.endswith('.txt'):
         print(f"Benchmarking {file}...")
         
         try:
-            output = subprocess.run(['./build/scc.exe', FOLDER_PATH + file, '5', '1'], capture_output=True)
+            output = subprocess.run(['./build/scc.exe', FOLDER_PATH + file, '50', '1'], capture_output=True)
             print_stdout(output)
             output_string = output.stdout.decode('utf-8')
 
