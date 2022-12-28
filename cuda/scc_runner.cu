@@ -65,9 +65,6 @@ void print_benchmark(const vector<double> executionTimes) {
 	// Calculate the standard deviation
 	double standardDeviation = sqrt(sumSquaredDifferences / executionTimes.size());
 
-  	//cout << "Total elapsed time: " << sum << "ms" << endl;
-	//cout << "Average elapsed time: " << mean << "ms" << endl;
-	//cout << "Standard deviation: " << standardDeviation << "ms" << endl;
 	cout << mean << "," << standardDeviation << endl;
 }
 
@@ -132,7 +129,7 @@ int main(unsigned int argc, char ** argv) {
 
   	print_benchmark(executionTimes); 
 
-	printf("Versione 1 - Naive -");
+	printf("Versione 1 -Naive-\n");
 	executionTimes.clear();
 	for(int i=0;i<repeat + WARMUP;i++){
 		auto start = chrono::high_resolution_clock::now();
@@ -148,21 +145,21 @@ int main(unsigned int argc, char ** argv) {
 
 	print_benchmark(executionTimes);
 
-	printf("Versione 2 - Status -");
+	printf("Versione 2 -Status-\n");
 	print_benchmark(common_routine(routine_v2, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
- 	printf("Versione 3 - Streams -");
+ 	printf("Versione 3 -Streams-\n");
 	print_benchmark(common_routine(routine_v3, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
-	printf("Versione 4 - Pinned -");
+	printf("Versione 4 -Pinned-\n");
 	print_benchmark(common_routine(routine_v4, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
-	printf("Versione 5 - OpenMP -");
+	printf("Versione 5 -OpenMP-\n");
 	print_benchmark(common_routine(routine_v5, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
-	printf("Versione 6 - Reach Ottimizzato -");
+	printf("Versione 6 -Reach Opt.-\n");
 	print_benchmark(common_routine(routine_v6, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 
-	printf("Versione 7 - Reach Ottimizzato + status unico -");
+	printf("Versione 7 -Status unico-\n");
 	print_benchmark(common_routine(routine_v7, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 }
