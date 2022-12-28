@@ -1,0 +1,8 @@
+Versione	Avg	Std
+Naive	171.38	4.53723
+Status	173.493	8.9154
+Streams	174.142	3.47368
+Pinned	140.837	8.8064
+OpenMP	142.086	7.83248
+Reach Opt.	133.619	4.13791
+Status unico	129.949	3.31409
