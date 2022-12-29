@@ -3,24 +3,26 @@ import re
 import subprocess
 import matplotlib.pyplot as plt
 import numpy as np
+import traceback
 
 def print_stdout(output):
     print(output.stdout.decode('utf-8').replace('\r', ''))
 
 print("Compiling CUDA code...")
-compiler_output = subprocess.run(["nvcc", "-Xcompiler", "/openmp", "-DDEBUG_FINAL=0", "-DOMP_MIN_NODES=100000", "-DWARMUP=5", ".\cuda\scc_runner.cu", "-o", "./build/scc.exe"], capture_output=True)
+compiler_output = subprocess.run(["nvcc", "-Xcompiler", "/openmp", "-DDEBUG_FINAL=0", "-DOMP_MIN_NODES=100000", "-DWARMUP=3", ".\cuda\scc_runner.cu", "-o", "./build/scc.exe"], capture_output=True)
 print_stdout(compiler_output)
 
-FOLDER_PATH = 'C:/Users/rikyn/Desktop/final/'
+FOLDER_PATH = 'F:/network-benchmark/final/'
 
 files = os.listdir(FOLDER_PATH)
 
 for file in files:
-    if file.endswith('.txt'):
+    if file.endswith('.txt') and "not_u" not in file: # or "soclive" in file):
+        
         print(f"Benchmarking {file}...")
         
         try:
-            output = subprocess.run(['./build/scc.exe', FOLDER_PATH + file, '25', '1'], capture_output=True)
+            output = subprocess.run(['./build/scc.exe', FOLDER_PATH + file, '5', '1'], capture_output=True)
             print_stdout(output)
             output_string = output.stdout.decode('utf-8')
 
@@ -44,20 +46,25 @@ for file in files:
                 for i in range(len(versions_runned)):
                     f.write(f"{versions_runned[i]}\t{avg[i]}\t{std[i]}\n")
 
-            for i in range(0,2):
-                plt.figure()
-                fig, ax = plt.subplots()
+            plt.figure()
+            fig, ax = plt.subplots()
 
-                plt.bar(versions_runned[i:], avg[i:], yerr=std[i:], error_kw=dict(lw=5, capsize=5, capthick=3))
+            plt.bar(versions_runned, avg, yerr=std, error_kw=dict(lw=5, capsize=5, capthick=3))
 
-                # Add labels and title
-                ax.set_xlabel('Versione', labelpad=-3)
-                ax.set_ylabel('Time (ms)')
-                ax.set_title(graph_names[0].capitalize(), fontdict={'fontsize': 20, 'fontweight': 'heavy'}, pad=15)
-                ax.set_xticks(np.arange(len(versions_runned[i:])))
-                ax.set_xticklabels([v.replace(" ", "\n") for v in versions_runned[i:]], fontsize=8)
+            # Add labels and title
+            ax.set_xlabel('Versione', labelpad=-3)
+            ax.set_ylabel('Time (ms)')
 
-                # Show the plot
-                plt.savefig(f'./benchmark/result/{graph_names[0]}_{i}.png')
+            name = graph_names[0]
+            if "not_u" in graph_names[0]:
+                name = graph_names[0].capitalize().replace("_not_u", " (Nodi U opposti)")
+
+            ax.set_title(name, fontdict={'fontsize': 20, 'fontweight': 'heavy'}, pad=15)
+            ax.set_xticks(np.arange(len(versions_runned)))
+            ax.set_xticklabels([v.replace(" ", "\n") for v in versions_runned], fontsize=8)
+
+            # Show the plot
+            plt.savefig(f'./benchmark/result/{graph_names[0]}.png')
         except Exception as e:
             print("Error: ", e, " - skipping file...")
+            print(traceback.format_exc())
