@@ -1,10 +1,50 @@
 # Progetto di Architetture Parallele
 
-Richiesta del testo in data: 28 settembre 2022
+Ricevuto il testo in data: 03 ottobre 2022
 
-Risposta con testo in data: 03 ottobre 2022
+## Istruzioni per l'uso
 
-## Richiesta
+Per la compilazione e l'esecuzione del programma, si utilizzano i seguenti comandi presenti nel MAKE file:
+- `make cpp-compile` per compilare la versione serializzata dell'algoritmo
+- `make cpp-run` per eseguire la versione serializzata dell'algoritmo
+- `make cuda-compile` per compilare il runner di CUDA
+- `make cuda-run` per eseguire il runner di CUDA
+
+Per utilizzare i grafi discussi nella relazione, utilizzare il link fornito per scaricarli. Una volta scompattati, inserire il percorso all'interno del MakeFile nel comando corretto.
+
+### Attenzione
+
+Il runner (`scc_runner.cu`) esegue tutte le versioni dell'algoritmo, utilizzando il grafo fornito in input. Per eseguire solo le versioni desiderate, si commenti la porzione di codice apposita e si ricompili.
+
+### Esempi di comandi
+
+#### Compilazione della versione serializzata
+
+```g++ -std=c++11 standalone.cpp -o ./build/standalone.exe```
+
+#### Compilazione della versione parallela
+
+```nvcc -Xcompiler /openmp -DDEBUG_FINAL=1 -DOMP_MIN_NODES=100000 -DWARMUP=0 ./cuda/scc_runner.cu -o ./build/scc.exe```
+
+- **DEBUG_FINAL**: 0 per non far printare niente a video, 1 per visualizzare il risultato
+- **OMP_MIN_NODES**: Numero di nodi necessario per attivare l'uso di OpenMP
+- **WARMUP**: parametro usato per la raccolta dei tempi di esecuzione. Corrisponde al numero di esecuzioni successive di cui non viene salvata la durata.
+
+#### Esecuzione della versione serializzata
+
+```./build/standalone.exe F:/network-benchmark/final/twitter.txt```
+
+Il parametro è la rete da fornire in input
+
+#### Esecuzione della versione parallela
+
+```./build/scc.exe F:/network-benchmark/final/twitter.txt 1```
+
+I parametri sono rispettivamente:
+- Rete da fornire in input
+- Numero di esecuzioni da fare per ogni versione (senza considerare il parametro WARMUP)
+
+## Richiesta del problema
 
 Richiamo alcune **definizioni** preliminari:
   - 1 grafo diretto: G(V,E) con V insieme dei nodi, con E insieme di archi
@@ -28,12 +68,6 @@ per poi riparlarne prima di iniziare a scrivere codice.
 
 È da ricordare che la data della discussione può essere diversa dagli appelli ufficiali. \
 È necessario fissare un giorno e la soluzione (codice, relazione, risultati di esempi, ...) va inviata almeno 10 giorni prima della data dell'orale.
-
-## Domande da fare al docente
-
-  -  ~~Il grafo è pesato? E se si, possono anche essere negativi i pesi?~~ \
-  Non importa dato che per la SCC non serve sapere se è pesato o no, ma basta sapere se l'arco c'è o no
-  - Quando dice "nessun elemento di prec(C) appartiene a U", in realtà vuole dire "nessun elemento di prec(S) appartiene a U"?
   
 ## Input
   - V = Insieme di nodi
@@ -96,12 +130,7 @@ Le operazioni identificate essere le più importanti sono le seguenti:
 Inizialmente si implementerà una versione che esegua queste operazioni in modo separato.
 
 Possibili ottimizzazioni:
- * Si può evitare di evitare di calcolare le SCC in cui ci sono nodi che non fanno parte di U? _(Magari trimmandoli direttamente)_?
-
-### Algoritmo (_apparentemente_) naive
-
-L'algoritmo più facile è quello di effettuare le quattro operazioni in fasi sequenziali:
-
+ * Si può evitare di evitare di calcolare le SCC in cui ci sono nodi che non fanno parte di U?
 **Strutture dati aggiuntive**
 
 * `removed`: vettore |V| che indica se un nodo potrebbe far parte o no di una SCC. Piuttosto di ricalcolare delle nuove liste senza un certo nodo, usiamo questo vettore di flag.
@@ -110,31 +139,3 @@ L'algoritmo più facile è quello di effettuare le quattro operazioni in fasi se
 
 _Opzionali_:
 * `expanded`: vettore |V| che indica se un nodo è sgià stato attraversato o no
-
-~~~
-
-// Fase 1: Creazione delle liste di adiacenza
-adj_list = generate_adj_list(G)
-trasposed_adj_list = generate_trasposed_adj_list(G)
-
-// Fase 2: Calcolo delle SCC
-TRIM(G, SCC, removed)
-PIVOT-GEN(G, SCC, color, removed)
-do
-  FWD-REACH(G, SCC, color, removed, visited, expanded)
-  BWD-REACH(G, SCC, color, removed, visited, expanded)
-  TRIM(G, SCC, removed)
-  UPDATE(G, SCC, color, removed, visited, expanded)
-  PIVOT-GEN(G, SCC, color, removed, visited)
-until (nessun pivot generato)
-
-// Fase 3: Eliminazione delle SCC che non hanno nodi che fanno parte di U
-FILTER-SCC(G, SCC)
-
-// Fase 4: Individuazione delle SCC con prec(S) ∩ U = {}
-prec = PREC-GEN(G, SCC)
-valid_sccs = PREC-CHECK(G, SCC, PREC)
-
-~~~
-
-`valid_sccs` dovrebbe essere il risultato finale
