@@ -2,6 +2,8 @@
 *.exp
 *.lib
 *.png
+*.csv
+*.out
 
 ### VisualStudioCode ###
 .vscode
