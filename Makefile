@@ -11,7 +11,7 @@ cpp-run-twitter:
 	@ ./build/standalone.exe ./samples/mid_tests/sample_test_scc_fewu
 
 cuda-compile:
-	@ nvcc -Xcompiler /openmp -DDEBUG_FINAL=1 -DOMP_MIN_NODES=100000 -DWARMUP=1 ./cuda/scc_runner.cu -o ./build/scc.exe
+	@ nvcc -Xcompiler /openmp -DDEBUG_FINAL=1 -DOMP_MIN_NODES=100000 -DWARMUP=0 ./cuda/scc_runner.cu -o ./build/scc.exe
 
 cuda-run-twitter:
-	@ ./build/scc.exe F:/network-benchmark/final/twitter.txt 2
+	@ ./build/scc.exe F:/network-benchmark/final/twitter.txt 1
