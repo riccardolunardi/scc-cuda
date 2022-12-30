@@ -19,15 +19,6 @@ using namespace std;
 #define DEBUG_FINAL true
 #endif
 
-/*
-
-VERSIONE DEL CODICE CUDA: NAIVEv2
-
-Rispetto alla versione precedente, viene utilizzato al posto dei vettori booleani, il vettore "status". Ogni i-esimo elemento occupa un byte: 6 degli 8 bit che compongono
-tale byte rappresentano lo stato di uno dei vettori booleani
-
-*/
-
 void reach_v2(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_adjacency_list, unsigned int * d_pivots, char * d_status, bool (*get_visited)(char *), bool (*get_expanded)(char *), void (*set_visited)(char *), void (*set_expanded)(char *), bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Esecuzione ricorsiva della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
@@ -100,7 +91,7 @@ void update_v2(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	cudaDeviceSynchronize();
 }
 
-void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine_v2(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
@@ -113,17 +104,6 @@ void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots, * d_colors;
 	char * d_status;
 	unsigned long * d_write_id_for_pivots;
-
-	/* if(DEBUG_MAIN){
-		for (unsigned int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
-		for (unsigned int i = 0; i < num_edges; i++)
-			DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_MAIN);
-		for (unsigned int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_MAIN);
-		for (unsigned int i = 0; i < num_edges; i++)
-			DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
-	} */
 
 	const unsigned int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
 	const unsigned int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
@@ -177,13 +157,6 @@ void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_e
 
 	unsigned int * pivot_test = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
 	char * status_test = (char*) malloc(num_nodes);
-	// HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
-	// HANDLE_ERROR(cudaMemcpy(status_test, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost));
-
-	// for (int i = 0; i < num_nodes; i++){
-	// 		if(get_is_d_u(&status_test[i]))
-	// 		printf("%d: %d - %s\n", i, pivot_test[i], from_status_to_string(status_test[i]));
-	// 	}
 
 	// Si ripete il ciclo fino a quando tutti i nodi vengono eliminati
 	stop = false;
@@ -195,30 +168,13 @@ void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		// Backward reach
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
 		reach_v2(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_status, h_get_bw_visited, h_get_bw_expanded, h_set_bw_visited, h_set_bw_expanded, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
-
-		// HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
-		// HANDLE_ERROR(cudaMemcpy(status_test, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost));
-
-		// for (int i = 0; i < num_nodes; i++){
-		// 	if(get_is_d_u(&status_test[i]))
-		// 	printf("%d: %d - %s\n", i, pivot_test[i], from_status_to_string(status_test[i]));
-		// }
-
-		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
-		//DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        //trimming_v2(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update_v2(num_nodes, d_pivots, d_status, d_colors, d_write_id_for_pivots, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		cudaDeviceSynchronize();
-		// HANDLE_ERROR(cudaMemcpy(pivot_test, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost));
-		// HANDLE_ERROR(cudaMemcpy(status_test, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost));
-		// for (int i = 0; i < num_nodes; i++){
-		// 	if(get_is_d_u(&status_test[i]))
-		// 	printf("%d: %d - %s\n", i, pivot_test[i], from_status_to_string(status_test[i]));
-		// }
 
+		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		if(!stop){
 			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
 			trimming_v2(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
@@ -241,42 +197,18 @@ void routine_v2(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	HANDLE_ERROR(cudaMalloc((void**)&d_is_scc, num_nodes * sizeof(unsigned int)));
 	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status, d_is_scc);
 
-	if(profiling){
-		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
-		cudaDeviceSynchronize();
-		
-		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-		DEBUG_MSG("Result: ", result, DEBUG_FINAL);
-	}else{
-		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
-		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
-		// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
-		is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
-		cudaDeviceSynchronize();
-
-		// Questa sezione di codice è temporanea, verrà rimossa al momento del test
-		unsigned int * pivots;
-		char * final_status;
-
-		pivots = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
-		final_status = (char*) malloc(num_nodes * sizeof(char));
-
-		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
-
-		set<unsigned> s = count_distinct_scc(num_nodes, pivots, final_status);
-
-		DEBUG_MSG("Number of SCCs found: ", s.size(), true);
-
-		/* HANDLE_ERROR(cudaFree(d_pivots));
-		HANDLE_ERROR(cudaFree(d_status)); */
-		free(final_status);
-		free(pivots);
-	}
-
+	eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
+	cudaDeviceSynchronize();
+	
+	bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
+	DEBUG_MSG("Result: ", result, DEBUG_FINAL);
 
 	// Da scommentare una volta finito il progetto
-
+	HANDLE_ERROR(cudaFree(d_is_scc));
+	HANDLE_ERROR(cudaFree(d_status));
+	HANDLE_ERROR(cudaFree(d_pivots));
+	HANDLE_ERROR(cudaFree(d_stop));
+	
 	cudaFreeHost(h_get_fw_visited);
 	cudaFreeHost(h_get_bw_visited);
 	cudaFreeHost(h_set_fw_visited);

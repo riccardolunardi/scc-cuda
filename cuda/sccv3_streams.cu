@@ -19,30 +19,6 @@ using namespace std;
 
 #define CUDA_STREAMS 9
 
-/*
-
-VERSIONE DEL CODICE CUDA: SCCv4 - Pinned Memory
-
-Questa versione del codice è un miglioramento della versione naive, in quanto si è andato a ottimizzare molti aspetti del codice:
-- Le operazioni sulla memoria adesso vengono eseguite su stream diversi, sincronizzando il codice quando necessario
-- Creazione di un'unica variabile "stop" da usare nei vari passaggi principali: si evita ogni volta una nuova allocazione
-- Utilizzo dei registri all'interno dei kernel, per velocizzare le operazioni
-- Utilizzo di un doppio shift, rimipazzando la moltiplicazione per 4
-- set_colors e set_race_winners sono stati uniti, evitando il lancio di un kernel non essenziale
-- Rimozione dell'array colors: tramite la programmazione parallela possiamo usare una sola variabile
-- Alcune operazioni binarie su "status" sono state unite in una sola (es. 100 | 010 | 001 === 110 | 001 )
-- Utilizzo di unsigned int. Nonostante non vengano migliorate direttamente le performace, c'è la possibilità di poter elaborare un numero più alto di nodi/archi
-  senza dove aumentare lo spazio utilzzato in memoria
-
-N.B.
-- Non è possibile fare uso della memoria shared visto il tipo operazioni eseguite: spesso, ad esempio tramite i pivots, il codice "salta"
-  da una posizione all'altra per accedere ai vari nodi. Visto che il massimo possibile sarebbe solo di salvare un frammento delle liste in memoria shared ed
-  è possibile anticipare dove si andrà a leggere gli array, è impossibile farne uso.
-- Non è possibile l'esecuzione in contemporanea (su stream diversi) di kernel diversi. Per funzionare correttamente ogni kernel deve ricevere i risultati di quello prima.
-  L'unico caso che sarebbe possibile è quello del forward e backward reach, se non fosse che entrambi modificano l'array "status" e ci sarebbe una race condition non favorevole
-
-*/
-
 void reach_v3(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_adjacency_list, unsigned int * d_pivots, char * d_status, bool (*get_visited)(char *), bool (*get_expanded)(char *), void (*set_visited)(char *), void (*set_expanded)(char *), bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Esecuzione ricorsiva della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
@@ -91,15 +67,6 @@ void update_v3(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	
 	*stop = true;
 	HANDLE_ERROR(cudaMemset(d_stop, true, sizeof(bool)));
-	// Dai paper:
-	// These subgraphs are 
-	// 		1) the strongly connected component with the pivot;
-	// 		2) the subgraph given by vertices in the forward closure but not in the backward closure; 
-	// 		3) the subgraph given by vertices in the backward closure but not in the forward closure;
-	// 		4) the subgraph given by vertices that are neither in the forward nor in the backward closure.
-	
-	// The subgraphs that do not contain the pivot form three independent instances of the same problem, and therefore, 
-	// they are recursively processed in parallel with the same algorithm
 	
 	// Setto i valori dei pivot che hanno vinto la race
 	// Se sono stati eliminati, allora setta il valore dello stesso nodo 
@@ -115,7 +82,7 @@ void update_v3(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	cudaDeviceSynchronize();
 }
 
-void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine_v3(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
@@ -128,17 +95,6 @@ void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_e
 	unsigned int * d_nodes, * d_adjacency_list, * d_nodes_transpose, * d_adjacency_list_transpose, * d_pivots, * d_colors;
 	char * d_status;
 	unsigned long * d_write_id_for_pivots;
-
-	/* if(DEBUG_MAIN){
-		for (unsigned int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("nodes[" + to_string(i) + "] = ", nodes[i], DEBUG_MAIN);
-		for (unsigned int i = 0; i < num_edges; i++)
-			DEBUG_MSG("adjacency_list[" + to_string(i) + "] = ", adjacency_list[i], DEBUG_MAIN);
-		for (unsigned int i = 0; i < num_nodes; i++)
-			DEBUG_MSG("nodes_transpose[" + to_string(i) + "] = ", nodes_transpose[i], DEBUG_MAIN);
-		for (unsigned int i = 0; i < num_edges; i++)
-			DEBUG_MSG("adjacency_list_transpose[" + to_string(i) + "] = ", adjacency_list_transpose[i], DEBUG_MAIN);
-	} */
 
 	const unsigned int THREADS_PER_BLOCK = prop.maxThreadsPerBlock;
 	const unsigned int NUMBER_OF_BLOCKS = num_nodes / THREADS_PER_BLOCK + (num_nodes % THREADS_PER_BLOCK == 0 ? 0 : 1);
@@ -210,15 +166,12 @@ void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		// Backward reach
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
 		reach_v3(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_status, h_get_bw_visited, h_get_bw_expanded, h_set_bw_visited, h_set_bw_expanded, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
-
-		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
-		//DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        //trimming_v3(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 		
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update_v3(num_nodes, d_pivots, d_status, d_colors, d_write_id_for_pivots, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
+		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		if(!stop){
 			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
 			trimming_v3(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, &stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
@@ -246,41 +199,17 @@ void routine_v3(const bool profiling, unsigned int num_nodes, unsigned int num_e
 
 	cudaStreamSynchronize(stream[6]);
 
-	if(profiling){
-		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
-		cudaDeviceSynchronize();
-		
-		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-		DEBUG_MSG("Result: ", result, DEBUG_FINAL);
-	}else{
-		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
-		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
-		// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
-		is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, 0, stream[6]>>>(num_nodes, d_pivots, d_status);
-		cudaDeviceSynchronize();
-
-		// Questa sezione di codice è temporanea, verrà rimossa al momento del test
-		unsigned int * pivots;
-		char * final_status;
-
-		pivots = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
-		final_status = (char*) malloc(num_nodes * sizeof(char));
-
-		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
-
-		set<unsigned> s = count_distinct_scc(num_nodes, pivots, final_status);
-
-		DEBUG_MSG("Number of SCCs found: ", s.size(), true);
-
-		free(final_status);
-		free(pivots);
-	}
+	eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
+	cudaDeviceSynchronize();
+	
+	bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
+	DEBUG_MSG("Result: ", result, DEBUG_FINAL);
 
 
 	// Da scommentare una volta finito il progetto
 	HANDLE_ERROR(cudaFreeAsync(d_pivots, stream[0]));
 	HANDLE_ERROR(cudaFreeAsync(d_status, stream[1]));
+	HANDLE_ERROR(cudaFreeAsync(d_is_scc, stream[2]));
 
 	cudaFreeHost(h_get_fw_visited);
 	cudaFreeHost(h_get_bw_visited);

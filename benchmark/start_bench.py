@@ -9,7 +9,7 @@ def print_stdout(output):
     print(output.stdout.decode('utf-8').replace('\r', ''))
 
 print("Compiling CUDA code...")
-compiler_output = subprocess.run(["nvcc", "-Xcompiler", "/openmp", "-DDEBUG_FINAL=0", "-DOMP_MIN_NODES=100000", "-DWARMUP=3", ".\cuda\scc_runner.cu", "-o", "./build/scc.exe"], capture_output=True)
+compiler_output = subprocess.run(["nvcc", "-Xcompiler", "/openmp", "-DDEBUG_FINAL=1", "-DOMP_MIN_NODES=100000", "-DWARMUP=1", ".\cuda\scc_runner.cu", "-o", "./build/scc.exe"], capture_output=True)
 print_stdout(compiler_output)
 
 FOLDER_PATH = 'F:/network-benchmark/final/'
@@ -17,12 +17,12 @@ FOLDER_PATH = 'F:/network-benchmark/final/'
 files = os.listdir(FOLDER_PATH)
 
 for file in files:
-    if file.endswith('.txt') and "not_u" not in file: # or "soclive" in file):
+    if file.endswith('.txt'):
         
         print(f"Benchmarking {file}...")
         
         try:
-            output = subprocess.run(['./build/scc.exe', FOLDER_PATH + file, '5', '1'], capture_output=True)
+            output = subprocess.run(['./build/scc.exe', FOLDER_PATH + file, '3'], capture_output=True)
             print_stdout(output)
             output_string = output.stdout.decode('utf-8')
 
@@ -41,7 +41,7 @@ for file in files:
             print(avg)
             print(std)
 
-            with open(f'./benchmark/result/{graph_names[0]}.csv', 'w') as f:
+            with open(f'./benchmark/result/{graph_names[0]}_test.csv', 'w') as f:
                 f.write(f"Versione\tAvg\tStd\n")
                 for i in range(len(versions_runned)):
                     f.write(f"{versions_runned[i]}\t{avg[i]}\t{std[i]}\n")
@@ -64,7 +64,7 @@ for file in files:
             ax.set_xticklabels([v.replace(" ", "\n") for v in versions_runned], fontsize=8)
 
             # Show the plot
-            plt.savefig(f'./benchmark/result/{graph_names[0]}.png')
+            plt.savefig(f'./benchmark/result/{graph_names[0]}_test.png')
         except Exception as e:
             print("Error: ", e, " - skipping file...")
             print(traceback.format_exc())

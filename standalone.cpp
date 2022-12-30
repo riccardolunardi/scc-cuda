@@ -14,7 +14,6 @@ using namespace std;
 #define DEBUG_FINAL false
 
 #define REPEAT 1
-#define PROFILING false
 
 void trimming_kernel(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * nodes_transpose, unsigned * adjacency_list, unsigned * adjacency_list_transpose, unsigned * pivots, char * status, bool &stop){
 	// Esegue un solo ciclo di eliminazione dei nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
@@ -292,14 +291,10 @@ void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned *
 	trim_u_propagation(num_nodes, pivots, status);
 	eliminate_trivial_scc(num_nodes, pivots, status);
 
-	if (PROFILING){
-		is_network_valid = false;
-		for(int i=0;i<num_nodes; i++){
-			is_network_valid |= get_is_scc(status[i]);
-		}
-	}else{
-		is_scc_adjust_host(num_nodes, pivots, status);
-	}	
+	is_network_valid = false;
+	for(int i=0;i<num_nodes; i++){
+		is_network_valid |= get_is_scc(status[i]);
+	}
 }
 
 unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
@@ -326,11 +321,7 @@ int routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, status);
 	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
 
-	if(PROFILING){
-		cout << is_network_valid << endl;
-	}else{
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), true);
-	}
+	cout << is_network_valid << endl;
 
 	free(pivots);
 	return 0;

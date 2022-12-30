@@ -26,7 +26,7 @@ double calculateStandardDeviation(double mean, int n, double numbers[]) {
 	return sqrt(sumSquaredDifferences / n);
 }
 
-vector<double> common_routine(void (*routine_runner)(const bool, unsigned int, unsigned int, unsigned int*, unsigned int*, unsigned int*, unsigned int*, char * ), const bool profiling, const unsigned int num_nodes, const unsigned int num_edges, unsigned int * nodes, unsigned int * adjacency_list, unsigned int * nodes_transpose, unsigned int * adjacency_list_transpose, char * status, char * og_status, const int repeat) {
+vector<double> common_routine(void (*routine_runner)(unsigned int, unsigned int, unsigned int*, unsigned int*, unsigned int*, unsigned int*, char * ), const unsigned int num_nodes, const unsigned int num_edges, unsigned int * nodes, unsigned int * adjacency_list, unsigned int * nodes_transpose, unsigned int * adjacency_list_transpose, char * status, char * og_status, const int repeat) {
 	// Call the function passed as an argument
 	vector<double> executionTimes;
 
@@ -34,7 +34,7 @@ vector<double> common_routine(void (*routine_runner)(const bool, unsigned int, u
 		memcpy(status, og_status, num_nodes);
 
 		auto start = chrono::high_resolution_clock::now();
-		routine_runner(profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
+		routine_runner(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 		auto end = chrono::high_resolution_clock::now();
 
 		if (WARMUP < i) {
@@ -49,33 +49,37 @@ vector<double> common_routine(void (*routine_runner)(const bool, unsigned int, u
 
 void print_benchmark(const vector<double> executionTimes) {
 	// Calculate the mean
-	double sum = 0;
-	for (double t : executionTimes) {
-		sum += t;
+	if (WARMUP == 0) {
+		cout << "Warmup is disabled, execution times are not printed" << endl;
+	}else{
+		double sum = 0;
+		for (double t : executionTimes) {
+			sum += t;
+		}
+		double mean = sum / executionTimes.size();
+
+		// Calculate the sum of squared differences
+		double sumSquaredDifferences = 0;
+		for (double t : executionTimes) {
+			double difference = t - mean;
+			sumSquaredDifferences += difference * difference;
+		}
+
+		// Calculate the standard deviation
+		double standardDeviation = sqrt(sumSquaredDifferences / executionTimes.size());
+
+		cout << mean << "," << standardDeviation << endl;
 	}
-	double mean = sum / executionTimes.size();
 
-	// Calculate the sum of squared differences
-	double sumSquaredDifferences = 0;
-	for (double t : executionTimes) {
-		double difference = t - mean;
-		sumSquaredDifferences += difference * difference;
-	}
-
-	// Calculate the standard deviation
-	double standardDeviation = sqrt(sumSquaredDifferences / executionTimes.size());
-
-	cout << mean << "," << standardDeviation << endl;
 }
 
 int main(unsigned int argc, char ** argv) {
-    if (argc < 4) {
-		cout << "Invalid Usage !! Usage is ./main.out <graph_input_file> <number_of_repetition> <profiling(0|1)>\n";
+    if (argc < 3) {
+		cout << "Invalid Usage !! Usage is ./main.out <graph_input_file> <number_of_repetition>\n";
 		return -1;
 	}
 
 	const int repeat = atoi(argv[2]);
-	const bool profiling = atoi(argv[3]);
 
 	// Inizializzazione di struttrure dati per le versioni > 1
 	unsigned num_nodes, num_edges;
@@ -116,11 +120,11 @@ int main(unsigned int argc, char ** argv) {
 
 	vector<double> executionTimes;
 	printf("Versione 0 -Sequen.-\n");
-	for(int i=0;i<repeat;i++){
+	for(int i=0;i<repeat + WARMUP;i++){
 		memcpy(status, og_status, num_nodes);
 		
 		auto start = chrono::high_resolution_clock::now();
-		routine(profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
+		routine(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status);
 		auto end = chrono::high_resolution_clock::now();
 		if (WARMUP < i) {
 			executionTimes.push_back(chrono::duration<double, milli>(end - start).count());
@@ -128,12 +132,12 @@ int main(unsigned int argc, char ** argv) {
 	}
 
   	print_benchmark(executionTimes); 
+	executionTimes.clear();
 
 	printf("Versione 1 -Naive-\n");
-	executionTimes.clear();
 	for(int i=0;i<repeat + WARMUP;i++){
 		auto start = chrono::high_resolution_clock::now();
-		routine_v1(profiling, num_nodes_v1, num_edges_v1, nodes_v1, adjacency_list_v1, nodes_transpose_v1, adjacency_list_transpose_v1, is_u);
+		routine_v1(num_nodes_v1, num_edges_v1, nodes_v1, adjacency_list_v1, nodes_transpose_v1, adjacency_list_transpose_v1, is_u);
 		auto end = chrono::high_resolution_clock::now();
 
 		if (WARMUP < i) {
@@ -144,22 +148,23 @@ int main(unsigned int argc, char ** argv) {
 	}
 
 	print_benchmark(executionTimes);
+	executionTimes.clear();
 
 	printf("Versione 2 -Status-\n");
-	print_benchmark(common_routine(routine_v2, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
+	print_benchmark(common_routine(routine_v2, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
  	printf("Versione 3 -Streams-\n");
-	print_benchmark(common_routine(routine_v3, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
+	print_benchmark(common_routine(routine_v3, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
 	printf("Versione 4 -Pinned-\n");
-	print_benchmark(common_routine(routine_v4, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
+	print_benchmark(common_routine(routine_v4, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
-	printf("Versione 5 -OpenMP-\n");
-	print_benchmark(common_routine(routine_v5, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
+ 	printf("Versione 5 -OpenMP-\n");
+	print_benchmark(common_routine(routine_v5, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
 	printf("Versione 6 -Reach Opt.-\n");
-	print_benchmark(common_routine(routine_v6, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
+	print_benchmark(common_routine(routine_v6, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 
 	printf("Versione 7 -Status unico-\n");
-	print_benchmark(common_routine(routine_v7, profiling, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
-}
+	print_benchmark(common_routine(routine_v7, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
+} 

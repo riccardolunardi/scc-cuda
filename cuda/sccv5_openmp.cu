@@ -24,14 +24,6 @@ using namespace std;
 #define OMP_MIN_NODES 10000
 #endif
 
-/*
-
-VERSIONE DEL CODICE CUDA: SCCv5 - OpenMP
-
-Rispetto alla quarta versione, in questa vengono parallelizzati, tramite le direttive di OpenMP, le chiamate all'API di CUDA per l'allocazione e il trasferimento dei dati
-
-*/
-
 void reach_v5(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_adjacency_list, unsigned int * d_pivots, char * d_status, bool (*get_visited)(char *), bool (*get_expanded)(char *), void (*set_visited)(char *), void (*set_expanded)(char *), bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Esecuzione ricorsiva della chiusura in avanti/indietro
 	// @param:	pivots			=	Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene
@@ -74,15 +66,6 @@ void update_v5(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	// @return: pivots			= Lista che contiene, per ogni 'v', il valore del pivot della SCC a cui tale nodo 'v' appartiene, aggiornata dopo l'esecuzione di update
 	
 	*d_stop = true;
-	// Dai paper:
-	// These subgraphs are 
-	// 		1) the strongly connected component with the pivot;
-	// 		2) the subgraph given by vertices in the forward closure but not in the backward closure; 
-	// 		3) the subgraph given by vertices in the backward closure but not in the forward closure;
-	// 		4) the subgraph given by vertices that are neither in the forward nor in the backward closure.
-	
-	// The subgraphs that do not contain the pivot form three independent instances of the same problem, and therefore, 
-	// they are recursively processed in parallel with the same algorithm
 	
 	// Setto i valori dei pivot che hanno vinto la race
 	// Se sono stati eliminati, allora setta il valore dello stesso nodo 
@@ -94,7 +77,7 @@ void update_v5(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	cudaDeviceSynchronize();
 }
 
-void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine_v5(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
@@ -299,14 +282,11 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
         DEBUG_MSG("Backward reach:" , "", DEBUG_FW_BW);
 		reach_v5(num_nodes, d_nodes_transpose, d_adjacency_list_transpose, d_pivots, d_status, h_get_bw_visited, h_get_bw_expanded, h_set_bw_visited, h_set_bw_expanded, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
-		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
-		//DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
-        //trimming_v5(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
-
 		// Update dei pivot
 		DEBUG_MSG("Update:" , "", DEBUG_FW_BW);
 		update_v5(num_nodes, d_pivots, d_status, d_colors, d_write_id_for_pivots, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
 
+		// Trimming per eliminare ulteriori nodi che non hanno più out-degree e in-degree diversi da 0
 		if(!*stop){
 			DEBUG_MSG("Trimming:" , "", DEBUG_FW_BW);
 			trimming_v5(num_nodes, d_nodes, d_nodes_transpose, d_adjacency_list, d_adjacency_list_transpose, d_status, stop, d_stop, NUMBER_OF_BLOCKS, THREADS_PER_BLOCK);
@@ -399,40 +379,11 @@ void routine_v5(const bool profiling, unsigned int num_nodes, unsigned int num_e
 
 	trim_u_propagation<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status, d_is_scc);
 
-	if(profiling){
-		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
-		cudaDeviceSynchronize();
-		
-		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-		DEBUG_MSG("Result: ", result, DEBUG_FINAL);
-	}else{
-		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
-		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
-		// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
-		is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
-		cudaDeviceSynchronize();
-
-		// Da scommentare una volta finito il progetto
-		//HANDLE_ERROR(cudaFreeAsync(d_pivots, stream[0]));
-		//HANDLE_ERROR(cudaFreeAsync(d_status, stream[1]));
-
-		// Questa sezione di codice è temporanea, verrà rimossa al momento del test
-		unsigned int * pivots;
-		char * final_status;
-
-		pivots = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
-		final_status = (char*) malloc(num_nodes * sizeof(char));
-
-		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
-
-		set<unsigned> s = count_distinct_scc(num_nodes, pivots, final_status);
-
-		DEBUG_MSG("Number of SCCs found: ", s.size(), true);
-
-		free(final_status);
-		free(pivots);
-	}
+	eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
+	cudaDeviceSynchronize();
+	
+	bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
+	DEBUG_MSG("Result: ", result, DEBUG_FINAL);
 
 	#pragma omp parallel if(num_nodes>10000) num_threads(MAX_THREADS_OMP)
 	{

@@ -24,12 +24,6 @@ using namespace std;
 #define OMP_MIN_NODES 10000
 #endif
 
-
-/* VERSIONE DEL CODICE CUDA: SCCv5 - Parallelizzazione backward e forward reach con OpenMP
- *  Rispetto alla quinta versione, in questa vengono parallelizzate, tramite le direttive di OpenMP, le esecuzioni delle backward reach e delle forward reach
- *  Inoltre, viene aggiunto un'operazione di OR sui vettori status modificati dalla forward e dalla backward, per poter unire i risultati delle due operazioni
-*/
-
 void trimming_v7(unsigned int const num_nodes, unsigned int * d_nodes, unsigned int * d_nodes_transpose, unsigned int * d_adjacency_list, unsigned int * d_adjacency_list_transpose, char * d_status, bool * stop, bool * d_stop, const unsigned int n_blocks, const unsigned int t_per_blocks) {
 	// Elimina iterativamente i nodi con out-degree o in-degree uguale a 0, senza contare i nodi eliminati
 
@@ -57,7 +51,7 @@ void update_v7(unsigned int const num_nodes, unsigned int * d_pivots, char * d_s
 	set_new_eliminated<<<n_blocks, t_per_blocks>>>(num_nodes, d_status, d_pivots, d_colors, d_write_id_for_pivots);
 }
 
-void routine_v7(const bool profiling, unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine_v7(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Impostazione del device
 	cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, 0);
@@ -393,43 +387,14 @@ void routine_v7(const bool profiling, unsigned int num_nodes, unsigned int num_e
 		}
     }
 
-	// Se la modalità è profiling, non si calcola il numero di SCC e si verifica se c'è almeno una SCC, altrimenti si conta il numero di SCC
-	if(profiling){
-		// Dato che l'algoritmo Forward-Backward identifica anche i singoli nodi come SCC
-		// Setto tutti i pivot come non facenti parte di una SCC, facendo attenzione a non rieseguire la funzione trim_u_propagation.
-		// Quindi tutte le SCC da 1 nodo saranno eliminate, mentre le SCC con 2 o più nodi verranno ancora considerate tali.
-		eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
-		
-		// Se è rimasta almeno una SCC, allora is_there_an_scc restituisce true, altrimenti false
-		bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-		DEBUG_MSG("Result: ", result, DEBUG_FINAL);
-	}else{
-		// Nella versione naive, una funzione calcolava il numero di nodi di una SCC e poi "cancellava" quelli con un numero < 2.
-		// La funzione è stata eliminata e is_scc_adjust si occupa di "cancellare" tali nodi senza doverli contare.
-		// N.B. Per "cancellare" si intende assegnare ad un generico nodo v is_scc[v] = -1
-		is_scc_adjust<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
-		cudaDeviceSynchronize();
-		// Propagazione dei cambiamenti fatti da is_scc_adjust
-		is_scc_adjust_prop<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_status);
-
-		// Strutture temporanee per la copia dei dati e per il debug
-		unsigned int * pivots;
-		char * final_status;
-
-		pivots = (unsigned int*) malloc(num_nodes * sizeof(unsigned int));
-		final_status = (char*) malloc(num_nodes * sizeof(char));
-
-		// Copia dei dati finali in memoria host
-		cudaMemcpy(pivots, d_pivots, num_nodes * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-		cudaMemcpy(final_status, d_status, num_nodes * sizeof(char), cudaMemcpyDeviceToHost);
-
-		set<unsigned> s = count_distinct_scc(num_nodes, pivots, final_status);
-
-		DEBUG_MSG("Number of SCCs found: ", s.size(), true);
-
-		free(final_status);
-		free(pivots);
-	}
+	// Dato che l'algoritmo Forward-Backward identifica anche i singoli nodi come SCC
+	// Setto tutti i pivot come non facenti parte di una SCC, facendo attenzione a non rieseguire la funzione trim_u_propagation.
+	// Quindi tutte le SCC da 1 nodo saranno eliminate, mentre le SCC con 2 o più nodi verranno ancora considerate tali.
+	eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
+	
+	// Se è rimasta almeno una SCC, allora is_there_an_scc restituisce true, altrimenti false
+	bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
+	DEBUG_MSG("Result: ", result, DEBUG_FINAL);
 
 	// Liberazione di memoria finale e distruzione streams
 	#pragma omp parallel if(num_nodes>OMP_MIN_NODES) num_threads(MAX_THREADS_OMP)

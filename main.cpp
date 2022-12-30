@@ -244,7 +244,7 @@ void eliminate_trivial_scc(unsigned num_nodes, unsigned * pivots, char * status)
 	}
 }
 
-void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
+void trim_u(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
 
 	// Setta i pivot delle SCC come non facenti parte di una SCC se queste ricevono archi da nodi u
@@ -256,37 +256,20 @@ void trim_u(const bool profiling, unsigned num_nodes, unsigned num_edges, unsign
 	// Quindi tutte le SCC da 1 nodo saranno eliminate, mentre le SCC con 2 o più nodi verranno ancora considerate tali.
 	eliminate_trivial_scc(num_nodes, pivots, status);
 
-	if (profiling){
-		is_network_valid = false;
-		unsigned i = 0;
-		// Al primo nodo SCC che trovo mi fermo
-		while(i < num_nodes && !get_is_scc(status[i])) {
-			++i;
-		}
-		// E se esiste una SCC si setta che la network è valida
-		if(i < num_nodes) {
-			is_network_valid = true;
-		}
+	is_network_valid = false;
+	unsigned i = 0;
+
+	// Al primo nodo SCC che trovo mi fermo
+	while(i < num_nodes && !get_is_scc(status[i])) {
+		++i;
+	}
+	// E se esiste una SCC si setta che la network è valida
+	if(i < num_nodes) {
+		is_network_valid = true;
 	}
 }
 
-unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
-	// Conta quanti elementi distinti ci sono in un array
-
-	set<unsigned> s;
-
-	// Aggiungo un elemento al set se fa parte della SCC
-	// set non permette elementi ripetuti, quindi ogni pivot comparirà una volta sola
-	for(int i=0; i<n; i++) {
-		if(get_is_scc(status[i])) {
-        	s.insert(pivots[i]);
-		}
-    }
-	
-    return s.size();
-}
-
-void routine(const bool profiling, int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
+void routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Funzione che printa se sono presenti SCC oppure il numero di SCC trovate
 
     unsigned * pivots;
@@ -295,13 +278,7 @@ void routine(const bool profiling, int num_nodes, int num_edges, unsigned * node
 	// Si esegue l'algoritmo Forward-Backward per la ricerca delle SCC
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, status);
 	// Si trimmano le SCC trovate se ricevono arche dai nodi U
-	trim_u(profiling, num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
+	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
 
-	if(profiling){
-		DEBUG_MSG("", is_network_valid, DEBUG_FINAL);
-	}else{
-		DEBUG_MSG("Number of SCCs found: ", count_distinct_scc(status, pivots, num_nodes), DEBUG_FINAL);
-	}
-
-	free(pivots);
+	DEBUG_MSG("Result: ", is_network_valid, DEBUG_FINAL);
 }
