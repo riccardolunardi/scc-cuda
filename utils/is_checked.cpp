@@ -40,15 +40,15 @@ void set_not_is_u(char & value)             { value &= 223; }
 void set_not_is_scc(char & value)           { value &= 191; }
 
 string from_status_to_string(char value) {
-    string aiuto;
+    string status_string;
     for(int i=7; i>-1; i--) {
         if(value & (1 << i)) {
-            aiuto.append(to_string(1));
+            status_string.append(to_string(1));
         } else {
-            aiuto.append(to_string(0));
+            status_string.append(to_string(0));
         }
     }
-    return aiuto;
+    return status_string;
 }
 
 #endif
