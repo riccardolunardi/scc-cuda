@@ -282,7 +282,7 @@ void is_scc_adjust_host(unsigned num_nodes, unsigned * pivots, char * status) {
 	}
 }
 
-void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
+void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
 	// @param:	pivots 	=	Lista che per ogni 'v' dice il valore del pivot della SCC
 	// 			status	=	Lista che per ogni 'v' contiene 8 bit che rappresentano degli stati
@@ -291,9 +291,32 @@ void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned *
 	trim_u_propagation(num_nodes, pivots, status);
 	eliminate_trivial_scc(num_nodes, pivots, status);
 
-	is_network_valid = false;
-	for(int i=0;i<num_nodes; i++){
-		is_network_valid |= get_is_scc(status[i]);
+	// Si prende come pivot, il primo pivot che si riesce a trovare facente parte di una scc 
+	unsigned pivot_riferimento;
+	unsigned v = 0;
+	while(v < num_nodes && !get_is_scc(status[v])) {
+		++v;
+	}
+
+	// Se trova una SCC, prende il pivot del primo nodo che fa parte di essa come pivot riferimento
+	// altrimenti setta il pivot di riferimento a -1 (impossibile)
+	if(v < num_nodes) {
+		pivot_riferimento = pivots[v];
+	} else {
+		pivot_riferimento = -1;
+	}
+
+	// salviamo in una struttura dati tutti i nodi aventi il pivot_riferimento
+	set<unsigned> nodi_in_scc;
+	for (unsigned u = 0; u < num_nodes; ++u) {
+		if (pivots[u] == pivot_riferimento) {
+			nodi_in_scc.insert(u);
+		}
+	}
+
+	// stampa ogni elemento di nodi_in_scc
+	for (auto it = nodi_in_scc.begin(); it != nodi_in_scc.end(); ++it) {
+		cout << *it << endl;
 	}
 }
 
@@ -316,12 +339,9 @@ unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){
 
 int routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
     unsigned * pivots;
-	bool is_network_valid;
 
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, status);
-	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
-
-	cout << is_network_valid << endl;
+	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status);
 
 	free(pivots);
 	return 0;
