@@ -80,7 +80,7 @@ __global__ void bitwise_or_kernel(const unsigned int num_nodes, char * d_status_
 		if (v == node_limit && remainder != 0) {
 			while(remainder) {
 				int idx = num_nodes - remainder--;
-				d_status_res[v] |= d_bw_status[v];
+				d_status_res[idx] |= d_bw_status[idx];
 			}
 	  }
 	}
@@ -240,7 +240,7 @@ __global__ void set_initialize_pivot(unsigned int const num_nodes, unsigned int 
 			
 			while(remainder) {
 				int idx = num_nodes - remainder--;
-				d_pivots[v] = d_pivots[0];
+				d_pivots[idx] = d_pivots[0];
 			}
 	  	}
 	}
@@ -419,13 +419,13 @@ __global__ void choose_scc_to_print(const unsigned int num_nodes, bool * d_is_sc
 	}
 }
 
-__global__ void print_scc(const unsigned int num_nodes, unsigned int * d_pivots, int choosen_pivot){
+__global__ void print_scc(const unsigned int num_nodes, unsigned int * d_pivots, unsigned int * choosen_pivot){
 	// Viene eseguita una race nella prima cella di memoria per verificare se esiste almeno una SCC
 	// Vista la semplicità dell'operazione, è stata implementata in modo da utilizzare l'accesso vettorizzato
 	int v = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if(v < num_nodes){
-		if (d_pivots[v] == choosen_pivot) {
+		if (d_pivots[v] == *choosen_pivot) {
 			printf("%d ", v);
 		}
 	}

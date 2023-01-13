@@ -404,7 +404,7 @@ void routine_v1(int num_nodes, int num_edges, int * nodes, int * adjacency_list,
 
 	if (pivot_riferimento_found){
 		if (DEBUG_FINAL){
-			print_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, (unsigned int*)d_pivots, pivot_riferimento);
+			print_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, (unsigned int*)d_pivots, d_pivots_riferimento);
 			printf("\n");
 		}
 	}else{

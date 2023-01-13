@@ -216,13 +216,13 @@ void routine_v2(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes
 
 	if (pivot_riferimento_found){
 		if (DEBUG_FINAL){
-			print_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, pivot_riferimento);
+			print_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, d_pivots_riferimento);
 			printf("\n");
 		}
 	}else{
 		DEBUG_MSG("No SCCs found", "", DEBUG_FINAL);
 	}
-
+	
 	HANDLE_ERROR(cudaFree(d_pivots_riferimento_found));
 	HANDLE_ERROR(cudaFree(d_pivots_riferimento));
 	HANDLE_ERROR(cudaFree(d_is_scc));
