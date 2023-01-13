@@ -244,7 +244,7 @@ void eliminate_trivial_scc(unsigned num_nodes, unsigned * pivots, char * status)
 	}
 }
 
-void trim_u(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status, bool & is_network_valid) {
+void trim_u(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * pivots, char * status) {
 	// Elimina le SCC riceventi archi da altri nodi U non facenti parte della SCC
 
 	// Setta i pivot delle SCC come non facenti parte di una SCC se queste ricevono archi da nodi u
@@ -256,29 +256,48 @@ void trim_u(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency
 	// Quindi tutte le SCC da 1 nodo saranno eliminate, mentre le SCC con 2 o più nodi verranno ancora considerate tali.
 	eliminate_trivial_scc(num_nodes, pivots, status);
 
-	is_network_valid = false;
-	unsigned i = 0;
+	// Si prende come pivot, il primo pivot che si riesce a trovare facente parte di una scc 
+	unsigned pivot_riferimento;
+	bool pivot_riferimento_found = false;
+	unsigned v = 0;
+	while(v < num_nodes && !get_is_scc(status[v])) {
+		++v;
+	}
 
-	// Al primo nodo SCC che trovo mi fermo
-	while(i < num_nodes && !get_is_scc(status[i])) {
-		++i;
+	// Se trova una SCC, prende il pivot del primo nodo che fa parte di essa come pivot riferimento
+	// altrimenti setta il pivot di riferimento a -1 (impossibile)
+	if(v < num_nodes) {
+		pivot_riferimento = pivots[v];
+		pivot_riferimento_found = true;
 	}
-	// E se esiste una SCC si setta che la network è valida
-	if(i < num_nodes) {
-		is_network_valid = true;
+
+	// salviamo in una struttura dati tutti i nodi aventi il pivot_riferimento
+	if(pivot_riferimento_found){
+		set<unsigned> nodi_in_scc;
+		for (unsigned u = 0; u < num_nodes; ++u) {
+			if (pivots[u] == pivot_riferimento) {
+				nodi_in_scc.insert(u);
+			}
+		}
+
+		// stampa ogni elemento di nodi_in_scc
+		for (auto it = nodi_in_scc.begin(); it != nodi_in_scc.end(); ++it) {
+			cout << *it << " ";
+		}
+	}else{
+		cout << "No SCCs found";
 	}
+
+	cout << endl;
 }
 
 void routine(int num_nodes, int num_edges, unsigned * nodes, unsigned * adjacency_list, unsigned * nodes_transpose, unsigned * adjacency_list_transpose, char * status) {
 	// Funzione che printa se sono presenti SCC oppure il numero di SCC trovate
 
     unsigned * pivots;
-	bool is_network_valid;
 
 	// Si esegue l'algoritmo Forward-Backward per la ricerca delle SCC
 	fw_bw(num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, pivots, status);
 	// Si trimmano le SCC trovate se ricevono arche dai nodi U
-	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status, is_network_valid);
-
-	DEBUG_MSG("Result: ", is_network_valid, DEBUG_FINAL);
+	trim_u(num_nodes, num_edges, nodes, adjacency_list, pivots, status);
 }

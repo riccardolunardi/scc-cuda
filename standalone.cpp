@@ -293,6 +293,7 @@ void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned *
 
 	// Si prende come pivot, il primo pivot che si riesce a trovare facente parte di una scc 
 	unsigned pivot_riferimento;
+	bool pivot_riferimento_found = false;
 	unsigned v = 0;
 	while(v < num_nodes && !get_is_scc(status[v])) {
 		++v;
@@ -302,22 +303,27 @@ void trim_u(unsigned num_nodes, unsigned num_edges, unsigned * nodes, unsigned *
 	// altrimenti setta il pivot di riferimento a -1 (impossibile)
 	if(v < num_nodes) {
 		pivot_riferimento = pivots[v];
-	} else {
-		pivot_riferimento = -1;
+		pivot_riferimento_found = true;
 	}
 
 	// salviamo in una struttura dati tutti i nodi aventi il pivot_riferimento
-	set<unsigned> nodi_in_scc;
-	for (unsigned u = 0; u < num_nodes; ++u) {
-		if (pivots[u] == pivot_riferimento) {
-			nodi_in_scc.insert(u);
+	if(pivot_riferimento_found){
+		set<unsigned> nodi_in_scc;
+		for (unsigned u = 0; u < num_nodes; ++u) {
+			if (pivots[u] == pivot_riferimento) {
+				nodi_in_scc.insert(u);
+			}
 		}
+
+		// stampa ogni elemento di nodi_in_scc
+		for (auto it = nodi_in_scc.begin(); it != nodi_in_scc.end(); ++it) {
+			cout << *it << " ";
+		}
+	}else{
+		cout << "No SCCs found";
 	}
 
-	// stampa ogni elemento di nodi_in_scc
-	for (auto it = nodi_in_scc.begin(); it != nodi_in_scc.end(); ++it) {
-		cout << *it << endl;
-	}
+	cout << endl;
 }
 
 unsigned count_distinct_scc(char status[], unsigned pivots[], unsigned n){

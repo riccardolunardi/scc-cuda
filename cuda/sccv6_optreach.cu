@@ -323,7 +323,7 @@ void routine_v6(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes
 			HANDLE_ERROR(cudaFreeAsync(d_colors, stream[1]));
 		}
 
-		#pragma omp section
+		/* #pragma omp section
 		{
 			cudaFreeHost(h_get_fw_visited);
 			cudaFreeHost(h_get_bw_visited);
@@ -346,7 +346,7 @@ void routine_v6(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes
 			cudaFreeHost(h_set_fw_expanded);
 			cudaFreeHost(h_set_bw_expanded);
 			cudaFreeHost(h_set_bw_expanded);
-		}
+		} */
 	}
 
 	// Setta i pivot delle SCC come non facenti parte di una SCC se queste ricevono archi da nodi u
@@ -396,9 +396,29 @@ void routine_v6(unsigned int num_nodes, unsigned int num_edges, unsigned * nodes
 	// Quindi tutte le SCC da 1 nodo saranno eliminate, mentre le SCC con 2 o più nodi verranno ancora considerate tali.
 	eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, d_pivots, d_is_scc);
 	
-	// Se è rimasta almeno una SCC, allora is_there_an_scc restituisce true, altrimenti false
-	bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc);
-	DEBUG_MSG("Result: ", result, DEBUG_FINAL);
+	// Si prende come pivot, il primo pivot che si riesce a trovare facente parte di una scc 
+	unsigned pivot_riferimento;
+	bool pivot_riferimento_found = false;
+	unsigned int * d_pivots_riferimento;
+	bool * d_pivots_riferimento_found;
+
+	HANDLE_ERROR(cudaMalloc((void**)&d_pivots_riferimento, sizeof(unsigned int)));
+	HANDLE_ERROR(cudaMalloc((void**)&d_pivots_riferimento_found, sizeof(bool)));
+	HANDLE_ERROR(cudaMemcpy(d_pivots_riferimento_found, &pivot_riferimento_found, sizeof(bool), cudaMemcpyHostToDevice));
+
+	choose_scc_to_print<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_scc, d_pivots, d_pivots_riferimento_found, d_pivots_riferimento);
+	
+	HANDLE_ERROR(cudaMemcpy(&pivot_riferimento_found, d_pivots_riferimento_found, sizeof(bool), cudaMemcpyDeviceToHost));
+	HANDLE_ERROR(cudaMemcpy(&pivot_riferimento, d_pivots_riferimento, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+
+	if (pivot_riferimento_found){
+		if (DEBUG_FINAL){
+			print_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_pivots, pivot_riferimento);
+			printf("\n");
+		}
+	}else{
+		DEBUG_MSG("No SCCs found", "", DEBUG_FINAL);
+	}
 
 	// Liberazione di memoria finale e distruzione streams
 	#pragma omp parallel if(num_nodes>OMP_MIN_NODES) num_threads(MAX_THREADS_OMP)

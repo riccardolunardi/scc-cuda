@@ -406,6 +406,31 @@ __global__ void at_least_one_scc(const unsigned int num_nodes, bool * d_is_scc){
 	}
 }
 
+__global__ void choose_scc_to_print(const unsigned int num_nodes, bool * d_is_scc, unsigned int * d_pivots, bool * pivot_found, unsigned int * pivot_riferimento){
+	// Viene eseguita una race nella prima cella di memoria per verificare se esiste almeno una SCC
+	// Vista la semplicità dell'operazione, è stata implementata in modo da utilizzare l'accesso vettorizzato
+	int v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if(v < num_nodes){
+		if (d_is_scc[v]){
+			*pivot_riferimento = d_pivots[v];
+			*pivot_found = true;
+		}
+	}
+}
+
+__global__ void print_scc(const unsigned int num_nodes, unsigned int * d_pivots, int choosen_pivot){
+	// Viene eseguita una race nella prima cella di memoria per verificare se esiste almeno una SCC
+	// Vista la semplicità dell'operazione, è stata implementata in modo da utilizzare l'accesso vettorizzato
+	int v = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if(v < num_nodes){
+		if (d_pivots[v] == choosen_pivot) {
+			printf("%d ", v);
+		}
+	}
+}
+
 bool is_there_an_scc(const unsigned int NUMBER_OF_BLOCKS, const unsigned int thread_per_block, const unsigned int num_nodes, bool * d_is_scc){
 	// Funzione che controlla se esiste almeno una SCC e salva i risultato in una variabile booleana
 	bool final_result = false;

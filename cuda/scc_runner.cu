@@ -50,7 +50,7 @@ vector<double> common_routine(void (*routine_runner)(unsigned int, unsigned int,
 void print_benchmark(const vector<double> executionTimes) {
 	// Calculate the mean
 	if (WARMUP == 0) {
-		cout << "Warmup is disabled, execution times are not printed" << endl;
+		cout << endl << "Warmup is disabled, execution times are not printed" << endl;
 	}else{
 		double sum = 0;
 		for (double t : executionTimes) {
@@ -68,7 +68,7 @@ void print_benchmark(const vector<double> executionTimes) {
 		// Calculate the standard deviation
 		double standardDeviation = sqrt(sumSquaredDifferences / executionTimes.size());
 
-		cout << mean << "," << standardDeviation << endl;
+		cout << endl << mean << "," << standardDeviation << endl;
 	}
 
 }
@@ -119,7 +119,7 @@ int main(unsigned int argc, char ** argv) {
 	status = (char *) malloc(num_nodes * sizeof(char));
 
 	vector<double> executionTimes;
-	printf("Versione 0 -Sequen.-\n");
+	/* printf("Versione 0 -Sequen.-\n");
 	for(int i=0;i<repeat + WARMUP;i++){
 		memcpy(status, og_status, num_nodes);
 		
@@ -132,7 +132,7 @@ int main(unsigned int argc, char ** argv) {
 	}
 
   	print_benchmark(executionTimes); 
-	executionTimes.clear();
+	executionTimes.clear(); */
 
 	printf("Versione 1 -Naive-\n");
 	for(int i=0;i<repeat + WARMUP;i++){
@@ -150,7 +150,7 @@ int main(unsigned int argc, char ** argv) {
 	print_benchmark(executionTimes);
 	executionTimes.clear();
 
-	printf("Versione 2 -Status-\n");
+ 	printf("Versione 2 -Status-\n");
 	print_benchmark(common_routine(routine_v2, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 	
  	printf("Versione 3 -Streams-\n");
@@ -164,7 +164,7 @@ int main(unsigned int argc, char ** argv) {
 	
 	printf("Versione 6 -Reach Opt.-\n");
 	print_benchmark(common_routine(routine_v6, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
-
+ 
 	printf("Versione 7 -Status unico-\n");
 	print_benchmark(common_routine(routine_v7, num_nodes, num_edges, nodes, adjacency_list, nodes_transpose, adjacency_list_transpose, status, og_status, repeat));
 } 

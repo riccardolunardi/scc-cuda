@@ -386,16 +386,38 @@ void routine_v1(int num_nodes, int num_edges, int * nodes, int * adjacency_list,
 	
 	convert_int_array_to_bool<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_scc, d_is_scc_final);
 	eliminate_trivial_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK, THREADS_PER_BLOCK*sizeof(unsigned int) + THREADS_PER_BLOCK*sizeof(bool)>>>(THREADS_PER_BLOCK, num_nodes, (unsigned int*)d_pivots, d_is_scc_final);
-	cudaDeviceSynchronize();
 	
-	bool result = is_there_an_scc(NUMBER_OF_BLOCKS_VEC_ACC, THREADS_PER_BLOCK, num_nodes, d_is_scc_final);
-	DEBUG_MSG("Result: ", result, DEBUG_FINAL);
+	// Si prende come pivot, il primo pivot che si riesce a trovare facente parte di una scc 
+	unsigned pivot_riferimento;
+	bool pivot_riferimento_found = false;
+	unsigned int * d_pivots_riferimento;
+	bool * d_pivots_riferimento_found;
+
+	HANDLE_ERROR(cudaMalloc((void**)&d_pivots_riferimento, sizeof(unsigned int)));
+	HANDLE_ERROR(cudaMalloc((void**)&d_pivots_riferimento_found, sizeof(bool)));
+	HANDLE_ERROR(cudaMemcpy(d_pivots_riferimento_found, &pivot_riferimento_found, sizeof(bool), cudaMemcpyHostToDevice));
+
+	choose_scc_to_print<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, d_is_scc_final, (unsigned int*)d_pivots, d_pivots_riferimento_found, d_pivots_riferimento);
+	
+	HANDLE_ERROR(cudaMemcpy(&pivot_riferimento_found, d_pivots_riferimento_found, sizeof(bool), cudaMemcpyDeviceToHost));
+	HANDLE_ERROR(cudaMemcpy(&pivot_riferimento, d_pivots_riferimento, sizeof(unsigned int), cudaMemcpyDeviceToHost));
+
+	if (pivot_riferimento_found){
+		if (DEBUG_FINAL){
+			print_scc<<<NUMBER_OF_BLOCKS, THREADS_PER_BLOCK>>>(num_nodes, (unsigned int*)d_pivots, pivot_riferimento);
+			printf("\n");
+		}
+	}else{
+		DEBUG_MSG("No SCCs found", "", DEBUG_FINAL);
+	}
 
 	HANDLE_ERROR(cudaFree(d_is_scc_final));
 	
 	HANDLE_ERROR(cudaFree(d_pivots));
 	HANDLE_ERROR(cudaFree(d_is_eliminated));
 
+	HANDLE_ERROR(cudaFree(d_pivots_riferimento_found));
+	HANDLE_ERROR(cudaFree(d_pivots_riferimento));
 	HANDLE_ERROR(cudaFree(d_nodes));
 	HANDLE_ERROR(cudaFree(d_is_u));
 	HANDLE_ERROR(cudaFree(d_adjacency_list));
